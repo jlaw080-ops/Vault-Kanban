@@ -173,3 +173,95 @@
   - AI Generator Agent가 Phase 단위로 커밋할 때 메시지를 일관되게 생성 가능.
   - 추후 CHANGELOG 자동 생성에도 유리.
 - **예시**: `feat(phase-2): 칸반 드래그앤드롭 구현`, `test(metrics): 사이클타임 경계 케이스 추가`.
+
+---
+
+## ADR-015: dev 스크립트는 `node scripts/dev.mjs` 런처 경유
+
+- **결정**: `npm run dev`는 `electron-vite dev`를 직접 실행하지 않고, `scripts/dev.mjs` Node ESM 런처를 거쳐 실행한다. 이 런처는 자식 프로세스의 환경 변수에서 `ELECTRON_RUN_AS_NODE`를 **삭제**한 뒤 `electron-vite dev`를 spawn한다.
+- **포맷 결정**: `.mjs` (ESM) 사용. 초기에는 `.cjs`로 작성했으나 ESLint `@typescript-eslint/no-require-imports` 규칙과 충돌. 규칙을 약화하는 대신 ESM `import`로 전환 (`import { spawn } from 'node:child_process'`). 런처는 자체 의존성 없는 단일 파일이므로 ESM 전환 비용 0.
+- **배경**:
+  - VSCode의 호스트 Electron이 spawned 터미널에 `ELECTRON_RUN_AS_NODE=1`을 export한다 (VSCode 내장 동작).
+  - Electron 바이너리는 이 변수가 비어있지 않은 어떤 값(`""` 포함)이라도 설정돼 있으면 plain Node 모드로 부팅한다.
+  - 이 경우 `require('electron')`이 API 객체 대신 **경로 문자열**을 반환 → `out/main/index.js`의 `electron.app.isPackaged` 접근에서 `TypeError: Cannot read properties of undefined (reading 'isPackaged')` 발생.
+- **검토했으나 포기한 대안**:
+  - `cross-env ELECTRON_RUN_AS_NODE= electron-vite dev` — cross-env는 변수 SET만 가능하고 UNSET이 불가능. 빈 값 `""`도 Electron이 "Node 모드 ON"으로 해석하므로 효과 없음.
+  - 사용자에게 VSCode 외부 터미널에서만 실행하라고 강제 — 비개발자 사용자에게 비현실적.
+  - 셸 프로파일에서 `unset ELECTRON_RUN_AS_NODE` — 매 세션 진입마다 부담, 프로파일 종속.
+- **트레이드오프**:
+  - dev 진입에 `node` 한 단계가 더 추가됨 (수십 ms 오버헤드).
+  - 윈도우에서 Bash/PowerShell/CMD 어디서 실행해도 동일하게 동작 → **수용**.
+- **검증**: `npm run dev` 실행 → main/preload 빌드 성공, 렌더러 dev 서버 `http://localhost:5173/` 기동, electron.exe 4개 정상 spawn, `isPackaged` 에러 미발생.
+
+---
+
+## ADR-016: chokidar `^5` 채택 (스펙 명시 `^4` 와 차이)
+
+- **결정**: PRD/스펙 명시 버전인 `chokidar ^4` 대신 `^5.0.0`을 채택한다.
+- **이유**:
+  - `^5`는 ESM-first 출시본이며 Node 20+ 환경에서 더 가벼운 의존성 트리(파싱·정규식 처리 단순화)를 제공.
+  - 스펙 작성 시점(`^4`) 이후 안정 메이저가 출시되었고, 본 프로젝트가 사용하는 watch API 표면(`add`/`change`/`unlink`)은 메이저 간 호환.
+  - Electron 33 + Node 20 런타임에서 `^4`의 fsevents 폴백 경로가 일부 윈도우 케이스에서 deprecation 경고를 띄우는 것을 회피.
+- **트레이드오프**: 스펙 문서와 실제 의존성이 어긋나는 단점 → 본 ADR로 명시적 대체.
+- **회귀 방지**: vault 로드 통합 테스트에서 `add`/`change`/`unlink` 이벤트 트리거 케이스 유지.
+
+---
+
+## ADR-017: Electron `^33.2.1` 잔여 CVE 수용 (개인용 범위)
+
+- **결정**: Electron `^33.2.1`을 사용하며, 이 시점 이후 공개된 잔여 CVE 패치를 위한 즉시 메이저 업그레이드는 하지 않는다.
+- **이유**:
+  - 본 앱은 **로컬 vault 파일만** 다루며 외부 신뢰되지 않은 콘텐츠(원격 URL, 외부 iframe, 외부 JS)를 로드하지 않음.
+  - `contextIsolation: true`, `nodeIntegration: false`, `sandbox: false`(파일 시스템 접근 필요로 sandbox만 해제) 설정으로 렌더러 공격면 축소.
+  - 메이저 업그레이드는 electron-vite, electron-builder, @electron-toolkit/* 동반 검증이 필요해 Phase 진행을 지연시킴.
+- **트레이드오프**: 외부 배포로 범위가 확장되거나, 렌더러가 원격 콘텐츠를 직접 로드하게 되면 본 ADR을 대체하는 새 ADR 필요.
+- **재평가 트리거**: (1) Electron LTS 변경, (2) 외부 사용자 배포 결정, (3) 렌더러에 외부 컨텐츠 로딩 기능 추가.
+
+---
+
+## ADR-018: shadcn/ui는 수동 스캐폴드 (CLI 미사용)
+
+- **결정**: `shadcn add` CLI를 돌리지 않고, 필요한 컴포넌트(`button.tsx` 등)와 토큰(`globals.css`의 HSL CSS 변수), `lib/utils.ts`(`cn` 헬퍼), `components.json`에 해당하는 설정을 수동으로 작성·복사한다.
+- **이유**:
+  - electron-vite + 다중 tsconfig(`tsconfig.web.json` / `tsconfig.node.json`) 환경에서 shadcn CLI의 경로 자동 추론이 자주 깨짐.
+  - 컴포넌트 한두 개부터 시작하므로 CLI를 도입할 만큼의 자동화 이득이 없음.
+  - 우리 코드 컨벤션(`react-refresh/only-export-components` 강제 → `button-variants.ts` 분리 등)을 CLI 출력보다 우선 적용해야 함.
+- **트레이드오프**: 컴포넌트 추가 시마다 shadcn 공식 소스에서 직접 복사 + 본 프로젝트 컨벤션 적용. 추후 컴포넌트가 10개를 넘기면 CLI 재도입 검토.
+
+---
+
+## ADR-019: 메인 ↔ 렌더러 타입 공유는 `src/renderer/src/types/index.ts` 단일 출처
+
+- **결정**: 도메인 타입(`Note`, `KanbanStatus`, `VaultMeta` 등)은 `src/renderer/src/types/index.ts`에 정의하고, 메인/프리로드는 **상대 경로 import**로 동일 정의를 공유한다. `shared/`나 별도 패키지를 만들지 않는다.
+- **이유**:
+  - 1인 프로젝트 규모에서 monorepo/`packages/shared`는 과잉.
+  - 타입은 빌드 산출물이 없으므로 메인/프리로드/렌더러 각자의 tsconfig에서 동일 파일을 import해도 문제없음.
+  - "타입은 한 곳에만" 규칙을 CLAUDE.md 헌법에 명시 (검색·수정 비용 최소화).
+- **트레이드오프**: 메인 코드가 렌더러 디렉토리를 import하는 모양새가 어색해 보일 수 있음 → 주석으로 의도 명시.
+- **검토했으나 포기**: `src/shared/types.ts` 신설 (디렉토리만 늘고 가치 미미), 패키지 분리 (over-engineering).
+
+---
+
+## ADR-020: zustand 스토어는 `vaultStore` / `viewStore` / `settingsStore` 3개로 고정
+
+- **결정**: 스토어를 정확히 3개만 둔다. 합치지 않고 더 쪼개지 않는다.
+  - `vaultStore`: 노트 목록·로딩 상태·파일 시스템 이벤트 반영
+  - `viewStore`: 칸반 컬럼 필터·정렬·UI 표시 상태
+  - `settingsStore`: vault 경로·테마·AI 설정 등 사용자 설정
+- **이유**:
+  - 책임 경계가 (데이터) / (뷰 상태) / (설정)으로 자연스럽게 갈림.
+  - 스토어가 5개를 넘으면 의존성 사이클·구독 비효율이 생기기 시작.
+  - 하나로 합치면 불필요한 리렌더가 폭증.
+- **트레이드오프**: 일부 도메인 액션이 두 스토어를 동시에 호출하는 경우가 생김 → 액션 호출자(컴포넌트)에서 명시적으로 처리.
+- **회귀 방지**: 새 스토어 추가 PR은 본 ADR 대체 ADR이 함께 작성돼야 머지.
+
+---
+
+## ADR-021: `button-variants.ts`는 `button.tsx`에서 분리
+
+- **결정**: shadcn `button` 컴포넌트의 CVA `buttonVariants`를 `button.tsx`에서 떼어 `button-variants.ts`로 분리한다.
+- **이유**:
+  - ESLint `react-refresh/only-export-components` 규칙: 컴포넌트 파일에서 컴포넌트 외 값(`buttonVariants`)을 export하면 HMR 갱신이 깨짐.
+  - 이 규칙은 dev 경험(즉시 반영) 보호용이라 비활성화하지 않음.
+- **트레이드오프**: shadcn 공식 예시와 파일 구조가 달라짐 → 다른 shadcn 컴포넌트 추가 시에도 동일 패턴 적용.
+- **적용 범위**: `variants` 객체를 export하는 모든 shadcn 컴포넌트(badge, alert 등)에 동일 규칙 적용.
