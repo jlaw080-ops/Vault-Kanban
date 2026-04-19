@@ -7,6 +7,7 @@ import { registerSettingsHandlers } from './ipc/settings'
 import { registerWatcherHandlers } from './ipc/watcher'
 import { registerApiKeyHandlers } from './ipc/api-key'
 import { registerAiHandlers } from './ipc/ai'
+import { registerMigrationHandlers } from './ipc/migration'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -51,6 +52,7 @@ app.whenReady().then(() => {
   registerWatcherHandlers()
   registerApiKeyHandlers()
   registerAiHandlers()
+  registerMigrationHandlers()
 
   createWindow()
 

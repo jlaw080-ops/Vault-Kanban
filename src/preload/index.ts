@@ -77,7 +77,24 @@ const ai = {
   }
 }
 
-const api = { vault, watcher, obsidian, system, settings, apiKey, ai }
+type MappingEntry = [string | null, string | 'skip']
+
+const migration = {
+  execute: (
+    vaultPath: string,
+    mapping: MappingEntry[],
+    excluded: string[]
+  ): Promise<{ ok: boolean; backupPath: string; migrated: number; errors: string[] }> =>
+    ipcRenderer.invoke('migration:execute', vaultPath, mapping, excluded),
+  listBackups: (
+    vaultPath: string
+  ): Promise<Array<{ name: string; createdAt: Date; sizeMb: number }>> =>
+    ipcRenderer.invoke('backup:list', vaultPath),
+  restoreBackup: (vaultPath: string, backupName: string): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke('backup:restore', vaultPath, backupName)
+}
+
+const api = { vault, watcher, obsidian, system, settings, apiKey, ai, migration }
 
 if (process.contextIsolated) {
   try {

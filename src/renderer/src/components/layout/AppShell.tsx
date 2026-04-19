@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BarChart3, Kanban, Settings, Brain, Link } from 'lucide-react'
+import { BarChart3, Kanban, Settings, Brain, Link, Shuffle } from 'lucide-react'
 import { KanbanBoard } from '../kanban/KanbanBoard'
 import { TopBar } from './TopBar'
 import { ControlBar } from './ControlBar'
@@ -7,6 +7,7 @@ import { NoteEditor } from '../editor/NoteEditor'
 import { Dashboard } from '../dashboard/Dashboard'
 import { SettingsPanel } from '../settings/SettingsPanel'
 import { AiGroupingDialog } from '../ai/AiGroupingDialog'
+import { StatusMigrationWizard } from '../migration/StatusMigrationWizard'
 import { RelatedNotesPanel } from '../ai/RelatedNotesPanel'
 import { useVaultStore } from '../../stores/vaultStore'
 import { useViewStore } from '../../stores/viewStore'
@@ -35,6 +36,7 @@ export function AppShell(): JSX.Element {
   const { toasts, dismissToast, route, setRoute, pushToast } = useViewStore()
   const [showAiDialog, setShowAiDialog] = useState(false)
   const [showRelated, setShowRelated] = useState(false)
+  const [showMigration, setShowMigration] = useState(false)
 
   useEffect(() => {
     const unsubscribe = window.api.watcher.onUnlink((filePath) => {
@@ -112,6 +114,14 @@ export function AppShell(): JSX.Element {
               <Link size={14} />
               관련 노트 찾기
             </button>
+            <button
+              onClick={() => setShowMigration(true)}
+              disabled={notes.length === 0}
+              className="flex items-center gap-2 text-xs px-2 py-1.5 rounded-md w-full text-left hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <Shuffle size={14} />
+              Status 마이그레이션
+            </button>
           </div>
         </aside>
 
@@ -188,6 +198,7 @@ export function AppShell(): JSX.Element {
           onApplied={() => setShowAiDialog(false)}
         />
       )}
+      {showMigration && <StatusMigrationWizard onClose={() => setShowMigration(false)} />}
     </div>
   )
 }

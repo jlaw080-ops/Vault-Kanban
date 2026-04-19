@@ -52,6 +52,29 @@ export interface AiApi {
   onProgress: (cb: (pct: number, label: string) => void) => () => void
 }
 
+export interface BackupEntry {
+  name: string
+  createdAt: Date
+  sizeMb: number
+}
+
+export interface MigrationResult {
+  ok: boolean
+  backupPath: string
+  migrated: number
+  errors: string[]
+}
+
+export interface MigrationApi {
+  execute: (
+    vaultPath: string,
+    mapping: Array<[string | null, string | 'skip']>,
+    excluded: string[]
+  ) => Promise<MigrationResult>
+  listBackups: (vaultPath: string) => Promise<BackupEntry[]>
+  restoreBackup: (vaultPath: string, backupName: string) => Promise<{ ok: boolean }>
+}
+
 export interface AppApi {
   vault: VaultApi
   watcher: WatcherApi
@@ -60,6 +83,7 @@ export interface AppApi {
   settings: SettingsApi
   apiKey: ApiKeyApi
   ai: AiApi
+  migration: MigrationApi
 }
 
 declare global {
