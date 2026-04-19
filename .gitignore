@@ -1,0 +1,28 @@
+# Harness 원본 (참고용 — 루트로 복사 완료)
+files/
+files.zip
+
+# Node
+node_modules/
+dist/
+out/
+.DS_Store
+*.log
+npm-debug.log*
+
+# Electron-builder
+release/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Env / Secrets
+.env
+.env.local
+.env.*.local
+
+# OS
+Thumbs.db

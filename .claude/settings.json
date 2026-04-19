@@ -1,0 +1,52 @@
+{
+  "$schema": "https://claude.ai/schemas/settings.json",
+  "description": "Vault Kanban - Harness 프레임워크 hooks 설정. 피드백 레이어.",
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/hooks/stop-check.sh",
+            "description": "응답 종료 시 린트+빌드+테스트 자동 실행"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/hooks/dangerous-cmd-guard.sh",
+            "description": "위험 명령어 차단 (rm -rf, force push 등)"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|str_replace",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/hooks/tdd-guard.sh",
+            "description": "구현 파일 수정 시 대응하는 테스트 존재 여부 확인"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/hooks/circuit-breaker.sh",
+            "description": "반복 에러 감지 (60초 내 5회 동일 오류 시 경고)"
+          }
+        ]
+      }
+    ]
+  }
+}

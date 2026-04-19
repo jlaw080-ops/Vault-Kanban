@@ -1,0 +1,63 @@
+{
+  "task": "mvp",
+  "description": "Vault Kanban MVP 전체 구현 (Phase 1~8)",
+  "created": "2026-04-18T00:00:00+09:00",
+  "phases": [
+    {
+      "id": 1,
+      "title": "프로젝트 뼈대 + Vault 로드",
+      "file": "step1.md",
+      "status": "pending",
+      "estimated_days": "1-2"
+    },
+    {
+      "id": 2,
+      "title": "칸반 보드 + 드래그앤드롭",
+      "file": "step2.md",
+      "status": "pending",
+      "estimated_days": "2-3"
+    },
+    {
+      "id": 3,
+      "title": "칸반 정석 기능 (WIP/정책/체류시간) + 그룹핑/정렬/필터",
+      "file": "step3.md",
+      "status": "pending",
+      "estimated_days": "2"
+    },
+    {
+      "id": 4,
+      "title": "노트 에디터 + 파일 감시",
+      "file": "step4.md",
+      "status": "pending",
+      "estimated_days": "2"
+    },
+    {
+      "id": 5,
+      "title": "지표 대시보드",
+      "file": "step5.md",
+      "status": "pending",
+      "estimated_days": "1-2"
+    },
+    {
+      "id": 6,
+      "title": "AI 그룹핑",
+      "file": "step6.md",
+      "status": "pending",
+      "estimated_days": "2-3"
+    },
+    {
+      "id": 7,
+      "title": "status 마이그레이션 도구",
+      "file": "step7.md",
+      "status": "pending",
+      "estimated_days": "1-2"
+    },
+    {
+      "id": 8,
+      "title": "설정 화면 완성 + 빌드/배포",
+      "file": "step8.md",
+      "status": "pending",
+      "estimated_days": "1-2"
+    }
+  ]
+}
