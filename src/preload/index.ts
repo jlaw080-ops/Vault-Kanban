@@ -7,7 +7,12 @@ const vault = {
   scan: (vaultPath: string, excludedFolders?: string[]): Promise<Note[]> =>
     ipcRenderer.invoke('vault:scan', vaultPath, excludedFolders),
   readNote: (filePath: string): Promise<Note> => ipcRenderer.invoke('vault:readNote', filePath),
-  writeNote: (note: Note): Promise<void> => ipcRenderer.invoke('vault:writeNote', note)
+  writeNote: (note: Note): Promise<void> => ipcRenderer.invoke('vault:writeNote', note),
+  moveNote: (
+    oldPath: string,
+    newPath: string
+  ): Promise<{ ok: true } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('vault:moveNote', oldPath, newPath)
 }
 
 const settings = {

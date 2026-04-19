@@ -1,5 +1,6 @@
 import { KanbanBoard } from '../kanban/KanbanBoard'
 import { TopBar } from './TopBar'
+import { ControlBar } from './ControlBar'
 import { useVaultStore } from '../../stores/vaultStore'
 import { useViewStore } from '../../stores/viewStore'
 import type { ColumnConfig, Status } from '@renderer/types'
@@ -37,7 +38,9 @@ export function AppShell(): JSX.Element {
           </button>
         </aside>
 
-        <main className="flex-1 overflow-hidden flex flex-col p-4">
+        <main className="flex-1 overflow-hidden flex flex-col">
+          <ControlBar />
+          <div className="flex-1 overflow-hidden p-4">
           {loading && (
             <div className="flex items-center justify-center flex-1">
               <span className="text-sm text-slate-500 dark:text-slate-400">로딩 중…</span>
@@ -61,6 +64,7 @@ export function AppShell(): JSX.Element {
           {!loading && (notes.length > 0 || vaultPath) && (
             <KanbanBoard notes={notes} columns={DEFAULT_COLUMNS} onNoteUpdate={updateNote} />
           )}
+          </div>
         </main>
       </div>
 

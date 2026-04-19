@@ -1,8 +1,9 @@
 import { create } from 'zustand'
-import type { Settings } from '@renderer/types'
+import { persist } from 'zustand/middleware'
+import type { Settings, Priority } from '@renderer/types'
 
 type Grouping = Settings['defaultGrouping']
-type Sort = Settings['defaultSort']
+type SortKey = Settings['defaultSort']
 
 export type ToastVariant = 'success' | 'error' | 'info'
 
@@ -12,43 +13,64 @@ export interface Toast {
   variant: ToastVariant
 }
 
+export interface ViewFilters {
+  tags: string[]
+  folders: string[]
+  priority: Priority | 'none' | 'all'
+  keyword: string
+}
+
 interface ViewState {
   grouping: Grouping
-  sort: Sort
-  search: string
-  selectedTags: string[]
-  selectedProject: string | null
+  sort: SortKey
+  filters: ViewFilters
   toasts: Toast[]
   setGrouping: (grouping: Grouping) => void
-  setSort: (sort: Sort) => void
-  setSearch: (search: string) => void
-  setSelectedTags: (tags: string[]) => void
-  setSelectedProject: (project: string | null) => void
+  setSort: (sort: SortKey) => void
+  setFilters: (filters: Partial<ViewFilters>) => void
   resetFilters: () => void
   pushToast: (message: string, variant?: ToastVariant, durationMs?: number) => void
   dismissToast: (id: string) => void
 }
 
-export const useViewStore = create<ViewState>((set, get) => ({
-  grouping: 'status',
-  sort: 'modifiedDesc',
-  search: '',
-  selectedTags: [],
-  selectedProject: null,
-  toasts: [],
+const DEFAULT_FILTERS: ViewFilters = {
+  tags: [],
+  folders: [],
+  priority: 'all',
+  keyword: ''
+}
 
-  setGrouping: (grouping) => set({ grouping }),
-  setSort: (sort) => set({ sort }),
-  setSearch: (search) => set({ search }),
-  setSelectedTags: (selectedTags) => set({ selectedTags }),
-  setSelectedProject: (selectedProject) => set({ selectedProject }),
-  resetFilters: () => set({ search: '', selectedTags: [], selectedProject: null }),
-  pushToast: (message, variant = 'info', durationMs = 4000) => {
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    set((state) => ({ toasts: [...state.toasts, { id, message, variant }] }))
-    if (durationMs > 0) {
-      setTimeout(() => get().dismissToast(id), durationMs)
+export const useViewStore = create<ViewState>()(
+  persist(
+    (set, get) => ({
+      grouping: 'status',
+      sort: 'modifiedDesc',
+      filters: DEFAULT_FILTERS,
+      toasts: [],
+
+      setGrouping: (grouping) => set({ grouping }),
+      setSort: (sort) => set({ sort }),
+      setFilters: (partial) =>
+        set((state) => ({ filters: { ...state.filters, ...partial } })),
+      resetFilters: () => set({ filters: DEFAULT_FILTERS }),
+
+      pushToast: (message, variant = 'info', durationMs = 4000) => {
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+        set((state) => ({ toasts: [...state.toasts, { id, message, variant }] }))
+        if (durationMs > 0) {
+          setTimeout(() => get().dismissToast(id), durationMs)
+        }
+      },
+      dismissToast: (id) =>
+        set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }))
+    }),
+    {
+      name: 'vault-kanban-view',
+      partialize: (state) => ({
+        grouping: state.grouping,
+        sort: state.sort,
+        filters: state.filters
+      })
     }
-  },
-  dismissToast: (id) => set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }))
-}))
+  )
+)

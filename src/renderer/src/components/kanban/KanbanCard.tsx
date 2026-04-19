@@ -3,12 +3,20 @@ import { CSS } from '@dnd-kit/utilities'
 import { AlertTriangle } from 'lucide-react'
 import { Badge } from '../ui/badge'
 import { cn } from '../../lib/utils'
-import type { Note } from '@renderer/types'
+import { getStayDays, getStayColor } from '../../lib/metrics'
+import { useSettingsStore } from '../../stores/settingsStore'
+import type { Note, ColumnConfig } from '@renderer/types'
 
 const PRIORITY_DOT: Record<string, string> = {
   high: 'bg-red-500',
   mid: 'bg-amber-500',
   low: 'bg-gray-500'
+}
+
+const STAY_BORDER: Record<string, string> = {
+  default: 'border-slate-200 dark:border-slate-800',
+  yellow: 'border-amber-400 dark:border-amber-500',
+  red: 'border-red-500 dark:border-red-600'
 }
 
 const MAX_TAGS = 3
@@ -34,18 +42,24 @@ function folderPath(filePath: string): string {
 
 interface KanbanCardProps {
   note: Note
+  column?: ColumnConfig
   isDragOverlay?: boolean
 }
 
-export function KanbanCard({ note, isDragOverlay = false }: KanbanCardProps): JSX.Element {
+export function KanbanCard({ note, column, isDragOverlay = false }: KanbanCardProps): JSX.Element {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: note.filePath
   })
+  const settings = useSettingsStore((s) => s.settings)
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition
   }
+
+  const stayColor = column && settings
+    ? getStayColor(getStayDays(note, column, new Date()), settings.stayTimeWarnings)
+    : 'default'
 
   const visibleTags = note.tags.slice(0, MAX_TAGS)
   const extraTags = note.tags.length - MAX_TAGS
@@ -61,9 +75,12 @@ export function KanbanCard({ note, isDragOverlay = false }: KanbanCardProps): JS
       {...listeners}
       className={cn(
         'bg-white dark:bg-slate-900',
-        'border border-slate-200 dark:border-slate-800',
+        'border',
+        STAY_BORDER[stayColor],
         'rounded-md p-3 cursor-grab active:cursor-grabbing',
         'hover:border-slate-300 dark:hover:border-slate-700',
+        stayColor !== 'default' && 'hover:border-amber-500 dark:hover:border-amber-400',
+        stayColor === 'red' && 'hover:border-red-600 dark:hover:border-red-500',
         'select-none',
         isDragging && 'opacity-40',
         isDragOverlay && 'scale-105 shadow-lg'

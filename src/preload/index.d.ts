@@ -6,6 +6,7 @@ export interface VaultApi {
   scan: (vaultPath: string, excludedFolders?: string[]) => Promise<Note[]>
   readNote: (filePath: string) => Promise<Note>
   writeNote: (note: Note) => Promise<void>
+  moveNote: (oldPath: string, newPath: string) => Promise<{ ok: true } | { ok: false; error: string }>
 }
 
 export interface SettingsApi {

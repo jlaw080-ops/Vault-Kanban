@@ -115,4 +115,17 @@ export function registerVaultHandlers(): void {
   ipcMain.handle('vault:writeNote', async (_event, note: Note) => {
     await writeNoteToDisk(note)
   })
+
+  ipcMain.handle(
+    'vault:moveNote',
+    async (_event, oldPath: string, newPath: string): Promise<{ ok: true } | { ok: false; error: string }> => {
+      try {
+        await fs.rename(oldPath, newPath)
+        return { ok: true }
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error)
+        return { ok: false, error: message }
+      }
+    }
+  )
 }
