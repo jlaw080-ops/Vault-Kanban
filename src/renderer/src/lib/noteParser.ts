@@ -60,12 +60,14 @@ export function parseNote(filePath: string, raw: string, mtime: number): Note {
   const titleFromFilename = stripExtension(basename)
 
   let frontmatter: Record<string, unknown> = {}
+  let originalKeyOrder: string[] = []
   let body = raw
   let parseError: string | undefined
 
   try {
     const parsed = matter(raw)
     frontmatter = (parsed.data ?? {}) as Record<string, unknown>
+    originalKeyOrder = Object.keys(frontmatter)
     body = parsed.content.replace(/^\n+/, '').replace(/\n+$/, '')
   } catch (error: unknown) {
     parseError = getErrorMessage(error)
@@ -107,23 +109,69 @@ export function parseNote(filePath: string, raw: string, mtime: number): Note {
   if (completed !== undefined) note.completed = completed
 
   if (parseError) note.parseError = parseError
+  if (originalKeyOrder.length > 0) note.originalKeyOrder = originalKeyOrder
 
   return note
 }
 
-export function serializeNote(note: Note): string {
-  const data: Record<string, unknown> = {
-    title: note.title,
-    status: note.status,
-    tags: note.tags,
-    created: note.created
-  }
+const KNOWN_KEYS = [
+  'title',
+  'status',
+  'priority',
+  'due',
+  'tags',
+  'project',
+  'created',
+  'started',
+  'completed'
+] as const
 
-  if (note.priority) data.priority = note.priority
-  if (note.due) data.due = note.due
-  if (note.project) data.project = note.project
+function buildFrontmatterMap(note: Note): Record<string, unknown> {
+  const data: Record<string, unknown> = {}
+  data.title = note.title
+  data.status = note.status
+  if (note.priority !== undefined) data.priority = note.priority
+  if (note.due !== undefined) data.due = note.due
+  data.tags = note.tags
+  if (note.project !== undefined) data.project = note.project
+  data.created = note.created
   if (note.started !== undefined) data.started = note.started
   if (note.completed !== undefined) data.completed = note.completed
+  return data
+}
 
-  return matter.stringify(note.body, data)
+const DEFAULT_KEY_ORDER: readonly string[] = ['title', 'status', 'tags', 'created']
+
+export function serializeNote(note: Note): string {
+  const fullData = buildFrontmatterMap(note)
+  const ordered: Record<string, unknown> = {}
+  const seen = new Set<string>()
+
+  const orderSource =
+    note.originalKeyOrder && note.originalKeyOrder.length > 0
+      ? note.originalKeyOrder
+      : DEFAULT_KEY_ORDER
+
+  for (const key of orderSource) {
+    if (key in fullData) {
+      ordered[key] = fullData[key]
+      seen.add(key)
+    }
+  }
+
+  for (const key of KNOWN_KEYS) {
+    if (!seen.has(key) && key in fullData) {
+      ordered[key] = fullData[key]
+      seen.add(key)
+    }
+  }
+
+  for (const key of Object.keys(fullData)) {
+    if (!seen.has(key)) {
+      ordered[key] = fullData[key]
+      seen.add(key)
+    }
+  }
+
+  return matter.stringify(note.body, ordered)
 }

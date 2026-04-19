@@ -9,6 +9,7 @@ interface VaultState {
   error: string | null
   setVaultPath: (path: string) => void
   setNotes: (notes: Note[]) => void
+  updateNote: (updated: Note) => void
   setLoading: (loading: boolean) => void
   setLoadProgress: (progress: { current: number; total: number } | null) => void
   setError: (error: string | null) => void
@@ -25,6 +26,10 @@ export const useVaultStore = create<VaultState>((set) => ({
 
   setVaultPath: (path) => set({ vaultPath: path }),
   setNotes: (notes) => set({ notes }),
+  updateNote: (updated) =>
+    set((state) => ({
+      notes: state.notes.map((n) => (n.filePath === updated.filePath ? updated : n))
+    })),
   setLoading: (loading) => set({ loading }),
   setLoadProgress: (loadProgress) => set({ loadProgress }),
   setError: (error) => set({ error }),

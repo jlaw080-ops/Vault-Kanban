@@ -1,7 +1,7 @@
 import { dialog, ipcMain, BrowserWindow } from 'electron'
 import { promises as fs } from 'fs'
 import { join } from 'path'
-import { parseNote, type Note } from '../utils/markdown'
+import { parseNote, serializeNote, type Note } from '../utils/markdown'
 
 const DEFAULT_EXCLUDED_FOLDERS: readonly string[] = [
   '.obsidian',
@@ -10,6 +10,39 @@ const DEFAULT_EXCLUDED_FOLDERS: readonly string[] = [
   'node_modules',
   '.DS_Store'
 ]
+
+export const RECENT_WRITE_TTL_MS = 1000
+
+export const recentlyWrittenByApp: Set<string> = new Set<string>()
+
+const writeTimers: Map<string, ReturnType<typeof setTimeout>> = new Map()
+
+export function isRecentlyWrittenByApp(filePath: string): boolean {
+  return recentlyWrittenByApp.has(filePath)
+}
+
+function scheduleEviction(filePath: string): void {
+  const existing = writeTimers.get(filePath)
+  if (existing) {
+    clearTimeout(existing)
+  }
+  const timer = setTimeout(() => {
+    recentlyWrittenByApp.delete(filePath)
+    writeTimers.delete(filePath)
+  }, RECENT_WRITE_TTL_MS)
+  writeTimers.set(filePath, timer)
+}
+
+export async function writeNoteToDisk(note: Note): Promise<void> {
+  if (!note.filePath || note.filePath.length === 0) {
+    throw new Error('writeNoteToDisk: note.filePath is required')
+  }
+
+  const markdown = serializeNote(note)
+  recentlyWrittenByApp.add(note.filePath)
+  scheduleEviction(note.filePath)
+  await fs.writeFile(note.filePath, markdown, 'utf-8')
+}
 
 async function selectVault(): Promise<string | null> {
   const focused = BrowserWindow.getFocusedWindow()
@@ -79,7 +112,7 @@ export function registerVaultHandlers(): void {
     return readSingleNote(filePath)
   })
 
-  ipcMain.handle('vault:writeNote', async () => {
-    return
+  ipcMain.handle('vault:writeNote', async (_event, note: Note) => {
+    await writeNoteToDisk(note)
   })
 }

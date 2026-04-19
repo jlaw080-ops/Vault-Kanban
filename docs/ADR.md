@@ -265,3 +265,29 @@
   - 이 규칙은 dev 경험(즉시 반영) 보호용이라 비활성화하지 않음.
 - **트레이드오프**: shadcn 공식 예시와 파일 구조가 달라짐 → 다른 shadcn 컴포넌트 추가 시에도 동일 패턴 적용.
 - **적용 범위**: `variants` 객체를 export하는 모든 shadcn 컴포넌트(badge, alert 등)에 동일 규칙 적용.
+
+---
+
+## ADR-022: 다이얼로그 프리미티브로 `@radix-ui/react-dialog` 채택
+
+- **결정**: shadcn `dialog` 컴포넌트를 수동 스캐폴드(ADR-018)하면서 그 베이스로 `@radix-ui/react-dialog`를 직접 의존성에 추가한다.
+- **이유**:
+  - ADR-003에서 shadcn/ui를 선택한 핵심 근거가 "Radix 기반 접근성"임. shadcn dialog는 Radix Dialog의 얇은 래퍼라 Radix 없이는 동등한 구현이 불가.
+  - 키보드 트랩, focus return, ESC 닫기, aria-modal 처리 등을 직접 구현하면 코드가 늘고 a11y 회귀 위험이 큼.
+  - dialog는 설정 패널·확인 모달·노트 미리보기 등 Phase 2 이후에도 반복 재사용 예정.
+- **트레이드오프**: 의존성 1개(`@radix-ui/react-dialog`) 추가. Radix는 트리 셰이킹이 잘 되고 다른 Radix 패키지를 추가로 강제하지 않음.
+- **검토했으나 포기**: 자체 구현(a11y 디버깅 비용 과다), Headless UI(Tailwind 종속이 더 강하고 컨벤션 충돌).
+- **적용 범위**: 향후 popover/tooltip/dropdown 등 Radix 기반 shadcn 컴포넌트가 필요해지면 같은 패턴으로 각 Radix 패키지를 ADR로 명시 후 추가.
+
+---
+
+## ADR-023: Toast는 자체 미니 구현 (sonner/Radix toast 미도입)
+
+- **결정**: 토스트(write 실패·성공 알림 등)는 zustand 기반 자체 미니 컴포넌트(`components/ui/toast.tsx` + `stores` 또는 inline 훅)로 구현한다. `sonner`나 `@radix-ui/react-toast`를 도입하지 않는다.
+- **이유**:
+  - 본 앱의 토스트 요구사항: (1) 우측 상단 표시, (2) 자동 사라짐, (3) error/success 두 가지 상태. 외부 라이브러리가 제공하는 promise toast, queue 우선순위, swipe gesture 등은 불필요.
+  - 의존성 1개라도 늘면 Electron 번들 크기가 증가 (ADR-001 트레이드오프 누적 방지).
+  - 자체 구현은 50줄 이내로 끝나며, 다크 모드/시맨틱 색 토큰을 우리 컨벤션에 맞춰 한 번에 적용 가능.
+- **트레이드오프**: 토스트 기능이 향후 복잡해지면(undo 액션·스택 관리·promise 통합) 자체 구현을 유지보수하는 비용이 증가. 그 시점에 `sonner` 도입 ADR로 대체.
+- **검토했으나 포기**: `sonner`(폴리싱은 좋으나 우리 요건에 과잉), `@radix-ui/react-toast`(Radix Dialog와 별도 패키지 추가 필요·API 표면이 더 큼).
+- **재평가 트리거**: (1) Promise 기반 토스트 필요, (2) 스택 5개 이상 관리, (3) Undo 액션 토스트 필요.

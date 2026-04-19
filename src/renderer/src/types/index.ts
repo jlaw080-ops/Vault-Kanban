@@ -17,6 +17,7 @@ export interface Note {
   body: string
   mtime: number
   parseError?: string
+  originalKeyOrder?: string[]
 }
 
 export interface ColumnConfig {
