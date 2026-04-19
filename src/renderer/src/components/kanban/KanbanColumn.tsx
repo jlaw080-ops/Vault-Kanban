@@ -83,7 +83,9 @@ export function KanbanColumn({ columnId, label, notes, column }: KanbanColumnPro
                 }
                 className="w-64 text-xs"
               >
-                <p className="font-semibold text-slate-700 dark:text-slate-300 mb-1.5">{label} 정책</p>
+                <p className="font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  {label} 정책
+                </p>
                 {column.policy ? (
                   <p className="text-slate-600 dark:text-slate-400 whitespace-pre-wrap leading-relaxed">
                     {column.policy}

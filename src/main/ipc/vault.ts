@@ -72,7 +72,7 @@ async function walkMarkdown(
   }
 }
 
-async function readSingleNote(filePath: string): Promise<Note> {
+export async function readSingleNote(filePath: string): Promise<Note> {
   const [raw, stat] = await Promise.all([fs.readFile(filePath, 'utf-8'), fs.stat(filePath)])
   return parseNote(filePath, raw, stat.mtimeMs)
 }
@@ -118,7 +118,11 @@ export function registerVaultHandlers(): void {
 
   ipcMain.handle(
     'vault:moveNote',
-    async (_event, oldPath: string, newPath: string): Promise<{ ok: true } | { ok: false; error: string }> => {
+    async (
+      _event,
+      oldPath: string,
+      newPath: string
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
       try {
         await fs.rename(oldPath, newPath)
         return { ok: true }

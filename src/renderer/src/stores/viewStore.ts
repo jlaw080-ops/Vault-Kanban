@@ -50,8 +50,7 @@ export const useViewStore = create<ViewState>()(
 
       setGrouping: (grouping) => set({ grouping }),
       setSort: (sort) => set({ sort }),
-      setFilters: (partial) =>
-        set((state) => ({ filters: { ...state.filters, ...partial } })),
+      setFilters: (partial) => set((state) => ({ filters: { ...state.filters, ...partial } })),
       resetFilters: () => set({ filters: DEFAULT_FILTERS }),
 
       pushToast: (message, variant = 'info', durationMs = 4000) => {
@@ -61,8 +60,7 @@ export const useViewStore = create<ViewState>()(
           setTimeout(() => get().dismissToast(id), durationMs)
         }
       },
-      dismissToast: (id) =>
-        set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }))
+      dismissToast: (id) => set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }))
     }),
     {
       name: 'vault-kanban-view',

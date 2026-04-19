@@ -9,7 +9,13 @@ interface PopoverProps {
   className?: string
 }
 
-export function Popover({ open, onClose, trigger, children, className }: PopoverProps): JSX.Element {
+export function Popover({
+  open,
+  onClose,
+  trigger,
+  children,
+  className
+}: PopoverProps): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {

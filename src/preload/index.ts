@@ -12,7 +12,35 @@ const vault = {
     oldPath: string,
     newPath: string
   ): Promise<{ ok: true } | { ok: false; error: string }> =>
-    ipcRenderer.invoke('vault:moveNote', oldPath, newPath)
+    ipcRenderer.invoke('vault:moveNote', oldPath, newPath),
+  deleteNote: (filePath: string): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('vault:deleteNote', filePath)
+}
+
+const watcher = {
+  start: (vaultPath: string, excluded: string[]): Promise<void> =>
+    ipcRenderer.invoke('watcher:start', vaultPath, excluded),
+  stop: (): Promise<void> => ipcRenderer.invoke('watcher:stop'),
+  onChange: (cb: (note: Note) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, note: Note): void => cb(note)
+    ipcRenderer.on('note:external-change', handler)
+    return () => ipcRenderer.removeListener('note:external-change', handler)
+  },
+  onUnlink: (cb: (filePath: string) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, filePath: string): void => cb(filePath)
+    ipcRenderer.on('note:unlink', handler)
+    return () => ipcRenderer.removeListener('note:unlink', handler)
+  }
+}
+
+const obsidian = {
+  open: (vaultName: string, relativePath: string): Promise<void> =>
+    ipcRenderer.invoke('obsidian:open', vaultName, relativePath)
+}
+
+const system = {
+  showInFolder: (filePath: string): Promise<void> =>
+    ipcRenderer.invoke('system:showInFolder', filePath)
 }
 
 const settings = {
@@ -23,7 +51,7 @@ const settings = {
   getAll: (): Promise<Settings> => ipcRenderer.invoke('settings:getAll')
 }
 
-const api = { vault, settings }
+const api = { vault, watcher, obsidian, system, settings }
 
 if (process.contextIsolated) {
   try {

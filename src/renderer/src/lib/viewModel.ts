@@ -54,13 +54,9 @@ export function sortNotes(notes: Note[], sort: SortKey): Note[] {
     case 'modifiedAsc':
       return copy.sort((a, b) => a.mtime - b.mtime)
     case 'createdDesc':
-      return copy.sort(
-        (a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()
-      )
+      return copy.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime())
     case 'createdAsc':
-      return copy.sort(
-        (a, b) => new Date(a.created).getTime() - new Date(b.created).getTime()
-      )
+      return copy.sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime())
     case 'titleAsc':
       return copy.sort((a, b) => a.title.localeCompare(b.title, 'ko'))
     case 'dueAsc':

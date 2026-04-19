@@ -18,10 +18,41 @@ function makeNote(overrides: Partial<Note> & { filePath: string }): Note {
 }
 
 const notes: Note[] = [
-  makeNote({ filePath: '/vault/A/note1.md', relativePath: 'A/note1.md', status: '백로그', tags: ['alpha'], project: 'proj-A', title: 'Alpha Note', mtime: new Date('2024-01-10').getTime() }),
-  makeNote({ filePath: '/vault/A/note2.md', relativePath: 'A/note2.md', status: '진행중', tags: ['beta'], project: 'proj-B', title: 'Beta Note', mtime: new Date('2024-01-08').getTime() }),
-  makeNote({ filePath: '/vault/B/note3.md', relativePath: 'B/note3.md', status: '완료', tags: ['alpha', 'gamma'], title: 'Gamma Note', mtime: new Date('2024-01-06').getTime() }),
-  makeNote({ filePath: '/vault/B/note4.md', relativePath: 'B/note4.md', status: '검토', tags: [], priority: 'high', title: 'Delta Note', mtime: new Date('2024-01-04').getTime() }),
+  makeNote({
+    filePath: '/vault/A/note1.md',
+    relativePath: 'A/note1.md',
+    status: '백로그',
+    tags: ['alpha'],
+    project: 'proj-A',
+    title: 'Alpha Note',
+    mtime: new Date('2024-01-10').getTime()
+  }),
+  makeNote({
+    filePath: '/vault/A/note2.md',
+    relativePath: 'A/note2.md',
+    status: '진행중',
+    tags: ['beta'],
+    project: 'proj-B',
+    title: 'Beta Note',
+    mtime: new Date('2024-01-08').getTime()
+  }),
+  makeNote({
+    filePath: '/vault/B/note3.md',
+    relativePath: 'B/note3.md',
+    status: '완료',
+    tags: ['alpha', 'gamma'],
+    title: 'Gamma Note',
+    mtime: new Date('2024-01-06').getTime()
+  }),
+  makeNote({
+    filePath: '/vault/B/note4.md',
+    relativePath: 'B/note4.md',
+    status: '검토',
+    tags: [],
+    priority: 'high',
+    title: 'Delta Note',
+    mtime: new Date('2024-01-04').getTime()
+  })
 ]
 
 describe('groupNotes', () => {
@@ -83,7 +114,7 @@ describe('sortNotes', () => {
     const withDue: Note[] = [
       makeNote({ filePath: '/a.md', due: '2024-03-01' }),
       makeNote({ filePath: '/b.md', due: '2024-01-15' }),
-      makeNote({ filePath: '/c.md' }),
+      makeNote({ filePath: '/c.md' })
     ]
     const sorted = sortNotes(withDue, 'dueAsc')
     expect(sorted[0].filePath).toBe('/b.md')
@@ -105,7 +136,12 @@ describe('filterNotes', () => {
   })
 
   it('태그 AND 필터: 모든 태그 포함된 노트만', () => {
-    const result = filterNotes(notes, { tags: ['alpha', 'gamma'], folders: [], priority: 'all', keyword: '' })
+    const result = filterNotes(notes, {
+      tags: ['alpha', 'gamma'],
+      folders: [],
+      priority: 'all',
+      keyword: ''
+    })
     expect(result).toHaveLength(1) // note3만 alpha + gamma 둘 다 가짐
   })
 
@@ -131,7 +167,12 @@ describe('filterNotes', () => {
   })
 
   it('복합 필터: 태그 + 폴더', () => {
-    const result = filterNotes(notes, { tags: ['alpha'], folders: ['A'], priority: 'all', keyword: '' })
+    const result = filterNotes(notes, {
+      tags: ['alpha'],
+      folders: ['A'],
+      priority: 'all',
+      keyword: ''
+    })
     expect(result).toHaveLength(1) // note1: A 폴더에 alpha 태그
   })
 })

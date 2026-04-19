@@ -30,8 +30,7 @@ const PRIORITY_LABELS: Record<string, string> = {
 }
 
 export function ControlBar(): JSX.Element {
-  const { grouping, sort, filters, setGrouping, setSort, setFilters, resetFilters } =
-    useViewStore()
+  const { grouping, sort, filters, setGrouping, setSort, setFilters, resetFilters } = useViewStore()
   const { notes } = useVaultStore()
   const [filterOpen, setFilterOpen] = useState(false)
   const popoverRef = useRef<HTMLDivElement>(null)
@@ -230,9 +229,7 @@ export function ControlBar(): JSX.Element {
         </button>
       )}
 
-      {filterOpen && (
-        <div className="fixed inset-0 z-40" onClick={() => setFilterOpen(false)} />
-      )}
+      {filterOpen && <div className="fixed inset-0 z-40" onClick={() => setFilterOpen(false)} />}
     </div>
   )
 }

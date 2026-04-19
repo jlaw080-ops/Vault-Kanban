@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerVaultHandlers } from './ipc/vault'
 import { registerSettingsHandlers } from './ipc/settings'
+import { registerWatcherHandlers } from './ipc/watcher'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -45,6 +46,7 @@ app.whenReady().then(() => {
 
   registerVaultHandlers()
   registerSettingsHandlers()
+  registerWatcherHandlers()
 
   createWindow()
 

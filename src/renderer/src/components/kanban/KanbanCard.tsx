@@ -5,6 +5,7 @@ import { Badge } from '../ui/badge'
 import { cn } from '../../lib/utils'
 import { getStayDays, getStayColor } from '../../lib/metrics'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { useVaultStore } from '../../stores/vaultStore'
 import type { Note, ColumnConfig } from '@renderer/types'
 
 const PRIORITY_DOT: Record<string, string> = {
@@ -51,15 +52,17 @@ export function KanbanCard({ note, column, isDragOverlay = false }: KanbanCardPr
     id: note.filePath
   })
   const settings = useSettingsStore((s) => s.settings)
+  const openNote = useVaultStore((s) => s.openNote)
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition
   }
 
-  const stayColor = column && settings
-    ? getStayColor(getStayDays(note, column, new Date()), settings.stayTimeWarnings)
-    : 'default'
+  const stayColor =
+    column && settings
+      ? getStayColor(getStayDays(note, column, new Date()), settings.stayTimeWarnings)
+      : 'default'
 
   const visibleTags = note.tags.slice(0, MAX_TAGS)
   const extraTags = note.tags.length - MAX_TAGS
@@ -73,6 +76,9 @@ export function KanbanCard({ note, column, isDragOverlay = false }: KanbanCardPr
       style={style}
       {...attributes}
       {...listeners}
+      onClick={() => {
+        if (!isDragging) openNote(note)
+      }}
       className={cn(
         'bg-white dark:bg-slate-900',
         'border',

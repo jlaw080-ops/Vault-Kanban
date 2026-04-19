@@ -114,9 +114,7 @@ export function KanbanBoard({ notes, columns, onNoteUpdate }: KanbanBoardProps):
   async function handleFolderDrop(draggedNote: Note, targetColId: string): Promise<void> {
     if (currentColumnOf(draggedNote) === targetColId) return
 
-    const ok = window.confirm(
-      `"${draggedNote.title}"을(를) "${targetColId}" 폴더로 이동할까요?`
-    )
+    const ok = window.confirm(`"${draggedNote.title}"을(를) "${targetColId}" 폴더로 이동할까요?`)
     if (!ok) return
 
     const oldPath = draggedNote.filePath.replace(/\\/g, '/')
@@ -138,7 +136,7 @@ export function KanbanBoard({ notes, columns, onNoteUpdate }: KanbanBoardProps):
     const currentColId = currentColumnOf(draggedNote)
     if (currentColId === targetColId) return
 
-    const oldTag = currentColId === '(태그 없음)' ? null : currentColId ?? null
+    const oldTag = currentColId === '(태그 없음)' ? null : (currentColId ?? null)
     const newTag = targetColId === '(태그 없음)' ? null : targetColId
 
     const newTags = draggedNote.tags.filter((t) => t !== oldTag)
@@ -204,9 +202,7 @@ export function KanbanBoard({ notes, columns, onNoteUpdate }: KanbanBoardProps):
           />
         ))}
       </div>
-      <DragOverlay>
-        {activeNote && <KanbanCard note={activeNote} isDragOverlay />}
-      </DragOverlay>
+      <DragOverlay>{activeNote && <KanbanCard note={activeNote} isDragOverlay />}</DragOverlay>
     </DndContext>
   )
 }
