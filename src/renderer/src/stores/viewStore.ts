@@ -20,17 +20,21 @@ export interface ViewFilters {
   keyword: string
 }
 
+export type AppRoute = 'kanban' | 'dashboard' | 'migration' | 'settings'
+
 interface ViewState {
   grouping: Grouping
   sort: SortKey
   filters: ViewFilters
   toasts: Toast[]
+  route: AppRoute
   setGrouping: (grouping: Grouping) => void
   setSort: (sort: SortKey) => void
   setFilters: (filters: Partial<ViewFilters>) => void
   resetFilters: () => void
   pushToast: (message: string, variant?: ToastVariant, durationMs?: number) => void
   dismissToast: (id: string) => void
+  setRoute: (route: AppRoute) => void
 }
 
 const DEFAULT_FILTERS: ViewFilters = {
@@ -47,11 +51,13 @@ export const useViewStore = create<ViewState>()(
       sort: 'modifiedDesc',
       filters: DEFAULT_FILTERS,
       toasts: [],
+      route: 'kanban' as AppRoute,
 
       setGrouping: (grouping) => set({ grouping }),
       setSort: (sort) => set({ sort }),
       setFilters: (partial) => set((state) => ({ filters: { ...state.filters, ...partial } })),
       resetFilters: () => set({ filters: DEFAULT_FILTERS }),
+      setRoute: (route) => set({ route }),
 
       pushToast: (message, variant = 'info', durationMs = 4000) => {
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`

@@ -30,6 +30,7 @@
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@radix-ui/react-dialog": "^1.1.15",
+    "@uiw/react-md-editor": "^4.1.0",
     "chokidar": "^5.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -37,6 +38,7 @@
     "electron-store": "^11.0.2",
     "gray-matter": "^4.0.3",
     "lucide-react": "^1.8.0",
+    "recharts": "^3.8.1",
     "tailwind-merge": "^3.5.0",
     "zustand": "^5.0.12"
   },

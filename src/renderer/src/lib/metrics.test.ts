@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { getStayDays, getStayColor } from './metrics'
+import {
+  getStayDays,
+  getStayColor,
+  computeLeadTime,
+  computeCycleTime,
+  computeThroughput,
+  buildCfd
+} from './metrics'
+import type { DateRange } from './metrics'
 import type { Note, ColumnConfig } from '@renderer/types'
 
 const baseNote: Note = {
@@ -95,5 +103,187 @@ describe('getStayColor', () => {
   it('임계값 변경 시 반영', () => {
     expect(getStayColor(5, { yellow: 5, red: 10 })).toBe('yellow')
     expect(getStayColor(4, { yellow: 5, red: 10 })).toBe('default')
+  })
+})
+
+describe('computeLeadTime', () => {
+  it('completed와 created가 모두 있으면 일수 반환', () => {
+    const note: Note = {
+      ...baseNote,
+      created: '2024-01-01T00:00:00Z',
+      completed: '2024-01-11T00:00:00Z'
+    }
+    expect(computeLeadTime(note)).toBe(10)
+  })
+
+  it('completed가 없으면 undefined 반환', () => {
+    const note: Note = { ...baseNote, completed: null }
+    expect(computeLeadTime(note)).toBeUndefined()
+  })
+
+  it('같은 날 created와 completed면 0일', () => {
+    const note: Note = {
+      ...baseNote,
+      created: '2024-01-05T00:00:00Z',
+      completed: '2024-01-05T23:59:59Z'
+    }
+    expect(computeLeadTime(note)).toBe(0)
+  })
+
+  it('created가 없으면 undefined 반환', () => {
+    const note: Note = {
+      ...baseNote,
+      created: '',
+      completed: '2024-01-11T00:00:00Z'
+    }
+    expect(computeLeadTime(note)).toBeUndefined()
+  })
+})
+
+describe('computeCycleTime', () => {
+  it('started와 completed가 모두 있으면 일수 반환', () => {
+    const note: Note = {
+      ...baseNote,
+      started: '2024-01-05T00:00:00Z',
+      completed: '2024-01-10T00:00:00Z'
+    }
+    expect(computeCycleTime(note)).toBe(5)
+  })
+
+  it('started가 없으면 undefined', () => {
+    const note: Note = { ...baseNote, started: null, completed: '2024-01-10T00:00:00Z' }
+    expect(computeCycleTime(note)).toBeUndefined()
+  })
+
+  it('completed가 없으면 undefined', () => {
+    const note: Note = { ...baseNote, started: '2024-01-05T00:00:00Z', completed: null }
+    expect(computeCycleTime(note)).toBeUndefined()
+  })
+
+  it('같은 날 started+completed면 0일', () => {
+    const note: Note = {
+      ...baseNote,
+      started: '2024-01-05T06:00:00Z',
+      completed: '2024-01-05T20:00:00Z'
+    }
+    expect(computeCycleTime(note)).toBe(0)
+  })
+})
+
+describe('computeThroughput', () => {
+  const range: DateRange = {
+    from: new Date('2024-01-01T00:00:00Z'),
+    to: new Date('2024-01-07T23:59:59Z')
+  }
+
+  it('bucket=day: completed 날짜별 카운트', () => {
+    const notes: Note[] = [
+      { ...baseNote, completed: '2024-01-02T00:00:00Z' },
+      { ...baseNote, completed: '2024-01-02T12:00:00Z' },
+      { ...baseNote, completed: '2024-01-05T00:00:00Z' }
+    ]
+    const result = computeThroughput(notes, range, 'day')
+    const jan2 = result.find((r) => r.date === '2024-01-02')
+    const jan5 = result.find((r) => r.date === '2024-01-05')
+    expect(jan2?.count).toBe(2)
+    expect(jan5?.count).toBe(1)
+  })
+
+  it('범위 밖 completed는 제외', () => {
+    const notes: Note[] = [
+      { ...baseNote, completed: '2023-12-31T00:00:00Z' },
+      { ...baseNote, completed: '2024-01-08T00:00:00Z' }
+    ]
+    const result = computeThroughput(notes, range, 'day')
+    expect(result.every((r) => r.count === 0)).toBe(true)
+  })
+
+  it('completed 없는 노트는 포함되지 않음', () => {
+    const notes: Note[] = [{ ...baseNote, completed: null }]
+    const result = computeThroughput(notes, range, 'day')
+    expect(result.every((r) => r.count === 0)).toBe(true)
+  })
+
+  it('bucket=week: 주 단위로 집계', () => {
+    const weekRange: DateRange = {
+      from: new Date('2024-01-01T00:00:00Z'),
+      to: new Date('2024-01-14T23:59:59Z')
+    }
+    const notes: Note[] = [
+      { ...baseNote, completed: '2024-01-03T00:00:00Z' },
+      { ...baseNote, completed: '2024-01-10T00:00:00Z' },
+      { ...baseNote, completed: '2024-01-11T00:00:00Z' }
+    ]
+    const result = computeThroughput(notes, weekRange, 'week')
+    expect(result.length).toBeGreaterThan(0)
+    const total = result.reduce((s, r) => s + r.count, 0)
+    expect(total).toBe(3)
+  })
+})
+
+describe('buildCfd', () => {
+  const range: DateRange = {
+    from: new Date('2024-01-01T00:00:00Z'),
+    to: new Date('2024-01-03T23:59:59Z')
+  }
+
+  it('created 이전에는 노트 미존재 (all zero)', () => {
+    const notes: Note[] = [
+      {
+        ...baseNote,
+        created: '2024-01-02T00:00:00Z',
+        started: null,
+        completed: null
+      }
+    ]
+    const result = buildCfd(notes, range, 'day')
+    const jan1 = result.find((r) => r.date === '2024-01-01')
+    expect(jan1?.백로그).toBe(0)
+  })
+
+  it('started 이전에는 백로그로 분류', () => {
+    const notes: Note[] = [
+      {
+        ...baseNote,
+        created: '2024-01-01T00:00:00Z',
+        started: '2024-01-03T00:00:00Z',
+        completed: null
+      }
+    ]
+    const result = buildCfd(notes, range, 'day')
+    const jan2 = result.find((r) => r.date === '2024-01-02')
+    expect(jan2?.백로그).toBe(1)
+    expect(jan2?.진행중).toBe(0)
+  })
+
+  it('completed 이후에는 완료로 분류', () => {
+    const notes: Note[] = [
+      {
+        ...baseNote,
+        created: '2024-01-01T00:00:00Z',
+        started: '2024-01-01T00:00:00Z',
+        completed: '2024-01-02T00:00:00Z'
+      }
+    ]
+    const result = buildCfd(notes, range, 'day')
+    const jan3 = result.find((r) => r.date === '2024-01-03')
+    expect(jan3?.완료).toBe(1)
+    expect(jan3?.진행중).toBe(0)
+  })
+
+  it('started 없이 completed만 있으면 created부터 백로그, completed 이후 완료', () => {
+    const notes: Note[] = [
+      {
+        ...baseNote,
+        created: '2024-01-01T00:00:00Z',
+        started: null,
+        completed: '2024-01-02T00:00:00Z'
+      }
+    ]
+    const result = buildCfd(notes, range, 'day')
+    const jan1 = result.find((r) => r.date === '2024-01-01')
+    const jan2 = result.find((r) => r.date === '2024-01-02')
+    expect(jan1?.백로그).toBe(1)
+    expect(jan2?.완료).toBe(1)
   })
 })
