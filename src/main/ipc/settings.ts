@@ -17,7 +17,9 @@ const DEFAULT_SETTINGS: Settings = {
   ],
   stayTimeWarnings: { yellow: 7, red: 14 },
   anthropicModel: 'claude-sonnet-4-6',
-  statusFieldName: 'status'
+  statusFieldName: 'status',
+  editorAutoSave: { enabled: true, idleSeconds: 2 },
+  theme: 'system'
 }
 
 let store: Store<Settings> | null = null

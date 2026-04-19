@@ -115,15 +115,11 @@ export function AiGroupingDialog({ notes, onClose, onApplied }: Props): JSX.Elem
   }
 
   function toggleProject(name: string): void {
-    setProjects((prev) =>
-      prev.map((p) => (p.name === name ? { ...p, selected: !p.selected } : p))
-    )
+    setProjects((prev) => prev.map((p) => (p.name === name ? { ...p, selected: !p.selected } : p)))
   }
 
   function renameProject(name: string, newName: string): void {
-    setProjects((prev) =>
-      prev.map((p) => (p.name === name ? { ...p, editingName: newName } : p))
-    )
+    setProjects((prev) => prev.map((p) => (p.name === name ? { ...p, editingName: newName } : p)))
   }
 
   return (
@@ -184,9 +180,7 @@ export function AiGroupingDialog({ notes, onClose, onApplied }: Props): JSX.Elem
                 </p>
               )}
               {projects.length === 0 && (
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  분류 결과가 없습니다.
-                </p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">분류 결과가 없습니다.</p>
               )}
               {projects.map((proj) => (
                 <div

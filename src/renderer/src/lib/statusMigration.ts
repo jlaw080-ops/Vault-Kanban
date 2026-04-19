@@ -13,7 +13,7 @@ const SUGGEST_TABLE: Array<[RegExp, Status]> = [
   [/^(review|검토중?|in.?review|reviewing)$/i, '검토']
 ]
 
-export function scanStatusValues(notes: Note[], _fieldName: string): Map<string | null, number> {
+export function scanStatusValues(notes: Note[]): Map<string | null, number> {
   const counts = new Map<string | null, number>()
   for (const note of notes) {
     const val: string | null =
@@ -34,11 +34,7 @@ export function suggestMapping(value: string | null): MappingValue | 'ask' {
   return 'ask'
 }
 
-export function applyMapping(
-  note: Note,
-  mapping: Map<string | null, MappingValue>,
-  _unifyFieldName: boolean
-): Note {
+export function applyMapping(note: Note, mapping: Map<string | null, MappingValue>): Note {
   const key: string | null =
     note.status === undefined || note.status === null || (note.status as string) === ''
       ? null

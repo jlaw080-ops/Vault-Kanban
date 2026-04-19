@@ -8,7 +8,7 @@ type MappingValue = string | 'skip'
 
 async function scanVaultMd(vaultPath: string, excluded: string[]): Promise<string[]> {
   const results: string[] = []
-  const walk = (dir: string) => {
+  const walk = (dir: string): void => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       if (excluded.includes(entry.name)) continue
       if (entry.name === '.vault-backup') continue

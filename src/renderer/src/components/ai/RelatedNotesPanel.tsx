@@ -34,7 +34,12 @@ function toAiInput(note: Note): AiNoteInput {
   }
 }
 
-export function RelatedNotesPanel({ referenceNote, allNotes, onOpenNote, onClose }: Props): JSX.Element {
+export function RelatedNotesPanel({
+  referenceNote,
+  allNotes,
+  onOpenNote,
+  onClose
+}: Props): JSX.Element {
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState<RelatedItem[]>([])
   const [error, setError] = useState('')
@@ -106,9 +111,7 @@ export function RelatedNotesPanel({ referenceNote, allNotes, onOpenNote, onClose
           </div>
         )}
 
-        {error && (
-          <div className="px-4 py-4 text-xs text-red-600 dark:text-red-400">{error}</div>
-        )}
+        {error && <div className="px-4 py-4 text-xs text-red-600 dark:text-red-400">{error}</div>}
 
         {!loading && !error && items.length === 0 && (
           <div className="px-4 py-8 text-xs text-slate-400 text-center">관련 노트 없음</div>
@@ -129,7 +132,10 @@ export function RelatedNotesPanel({ referenceNote, allNotes, onOpenNote, onClose
                       <span className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate flex-1">
                         {note.title}
                       </span>
-                      <ExternalLink size={10} className="text-slate-300 dark:text-slate-600 flex-shrink-0 mt-0.5" />
+                      <ExternalLink
+                        size={10}
+                        className="text-slate-300 dark:text-slate-600 flex-shrink-0 mt-0.5"
+                      />
                     </div>
 
                     {/* Score bar */}
@@ -143,9 +149,7 @@ export function RelatedNotesPanel({ referenceNote, allNotes, onOpenNote, onClose
                       <span className="text-xs text-slate-400 w-6 text-right">
                         {Math.round(item.score * 100)}
                       </span>
-                      <span className="text-xs text-slate-300 dark:text-slate-600">
-                        #{idx + 1}
-                      </span>
+                      <span className="text-xs text-slate-300 dark:text-slate-600">#{idx + 1}</span>
                     </div>
 
                     <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">

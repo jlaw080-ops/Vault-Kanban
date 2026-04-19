@@ -6,7 +6,7 @@ const NAME_RE = /^backup-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$/
 
 function timestamp(): string {
   const d = new Date()
-  const pad = (n: number, l = 2) => String(n).padStart(l, '0')
+  const pad = (n: number, l = 2): string => String(n).padStart(l, '0')
   return (
     `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}` +
     `-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
@@ -29,7 +29,7 @@ function collectFiles(dir: string, skip: string): string[] {
 
 function dirSizeMb(dir: string): number {
   let bytes = 0
-  const walk = (d: string) => {
+  const walk = (d: string): void => {
     for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
       const full = path.join(d, entry.name)
       if (entry.isDirectory()) walk(full)

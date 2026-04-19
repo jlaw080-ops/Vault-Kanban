@@ -46,7 +46,11 @@ ${json}
 
 function buildRelatedPrompt(reference: AiNoteInput, candidates: AiNoteInput[]): string {
   const truncatedCandidates = candidates.map((n) => ({ ...n, preview: truncate(n.preview, 200) }))
-  const refJson = JSON.stringify({ ...reference, preview: truncate(reference.preview, 200) }, null, 2)
+  const refJson = JSON.stringify(
+    { ...reference, preview: truncate(reference.preview, 200) },
+    null,
+    2
+  )
   const candidatesJson = JSON.stringify(truncatedCandidates, null, 2)
 
   return `다음 기준 노트와 가장 관련 있는 노트 Top 5를 찾아주세요.

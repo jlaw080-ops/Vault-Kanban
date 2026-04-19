@@ -39,7 +39,6 @@ describe('createBackup', () => {
 
   it('does not copy .vault-backup itself (no recursion)', async () => {
     await createBackup(tmpDir)
-    const backupDir = path.join(tmpDir, '.vault-backup')
     const backupPath = await createBackup(tmpDir)
     const inner = path.join(backupPath, '.vault-backup')
     expect(fs.existsSync(inner)).toBe(false)

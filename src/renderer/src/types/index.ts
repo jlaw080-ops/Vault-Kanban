@@ -36,4 +36,6 @@ export interface Settings {
   stayTimeWarnings: { yellow: number; red: number }
   anthropicModel: string
   statusFieldName: string
+  editorAutoSave: { enabled: boolean; idleSeconds: number }
+  theme: 'system' | 'light' | 'dark'
 }
