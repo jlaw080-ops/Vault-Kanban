@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { Note, Settings } from '../main/utils/markdown'
+import type { AiNoteInput, AiGroupResult, RelatedResult } from '../main/ipc/ai'
 
 const vault = {
   select: (): Promise<string | null> => ipcRenderer.invoke('vault:select'),
@@ -51,7 +52,32 @@ const settings = {
   getAll: (): Promise<Settings> => ipcRenderer.invoke('settings:getAll')
 }
 
-const api = { vault, watcher, obsidian, system, settings }
+const apiKey = {
+  set: (plain: string): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('apiKey:set', plain),
+  exists: (): Promise<boolean> => ipcRenderer.invoke('apiKey:exists'),
+  test: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('apiKey:test'),
+  setModel: (model: string): Promise<void> => ipcRenderer.invoke('apiKey:setModel', model),
+  getModel: (): Promise<string> => ipcRenderer.invoke('apiKey:getModel')
+}
+
+const ai = {
+  groupNotes: (notes: AiNoteInput[]): Promise<AiGroupResult | { error: string }> =>
+    ipcRenderer.invoke('ai:groupNotes', notes),
+  findRelated: (
+    reference: AiNoteInput,
+    candidates: AiNoteInput[]
+  ): Promise<RelatedResult | { error: string }> =>
+    ipcRenderer.invoke('ai:findRelated', reference, candidates),
+  onProgress: (cb: (pct: number, label: string) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, pct: number, label: string): void =>
+      cb(pct, label)
+    ipcRenderer.on('ai:progress', handler)
+    return () => ipcRenderer.removeListener('ai:progress', handler)
+  }
+}
+
+const api = { vault, watcher, obsidian, system, settings, apiKey, ai }
 
 if (process.contextIsolated) {
   try {

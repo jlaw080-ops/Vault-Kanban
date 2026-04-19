@@ -1,5 +1,6 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type { Note, Settings } from '../main/utils/markdown'
+import type { AiNoteInput, AiGroupResult, RelatedResult } from '../main/ipc/ai'
 
 export interface VaultApi {
   select: () => Promise<string | null>
@@ -34,12 +35,31 @@ export interface SettingsApi {
   getAll: () => Promise<Settings>
 }
 
+export interface ApiKeyApi {
+  set: (plain: string) => Promise<{ ok: boolean; error?: string }>
+  exists: () => Promise<boolean>
+  test: () => Promise<{ ok: boolean; error?: string }>
+  setModel: (model: string) => Promise<void>
+  getModel: () => Promise<string>
+}
+
+export interface AiApi {
+  groupNotes: (notes: AiNoteInput[]) => Promise<AiGroupResult | { error: string }>
+  findRelated: (
+    reference: AiNoteInput,
+    candidates: AiNoteInput[]
+  ) => Promise<RelatedResult | { error: string }>
+  onProgress: (cb: (pct: number, label: string) => void) => () => void
+}
+
 export interface AppApi {
   vault: VaultApi
   watcher: WatcherApi
   obsidian: ObsidianApi
   system: SystemApi
   settings: SettingsApi
+  apiKey: ApiKeyApi
+  ai: AiApi
 }
 
 declare global {

@@ -5,6 +5,8 @@ import icon from '../../resources/icon.png?asset'
 import { registerVaultHandlers } from './ipc/vault'
 import { registerSettingsHandlers } from './ipc/settings'
 import { registerWatcherHandlers } from './ipc/watcher'
+import { registerApiKeyHandlers } from './ipc/api-key'
+import { registerAiHandlers } from './ipc/ai'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -47,6 +49,8 @@ app.whenReady().then(() => {
   registerVaultHandlers()
   registerSettingsHandlers()
   registerWatcherHandlers()
+  registerApiKeyHandlers()
+  registerAiHandlers()
 
   createWindow()
 
