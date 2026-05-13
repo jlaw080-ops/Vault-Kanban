@@ -3,58 +3,33 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-
-    --accent: 210 40% 96%;
-    --accent-foreground: 222 47% 11%;
-
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
-
-    --success: 142 70% 40%;
-    --success-foreground: 210 40% 98%;
-
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 222 47% 11%;
-  }
-
+  /* Spotify dark theme — applied universally (both :root and .dark) */
+  :root,
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
+    --background: 0 0% 7%;        /* #121212 near-black */
+    --foreground: 0 0% 100%;      /* #ffffff white */
 
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 9%;              /* #181818 dark surface */
+    --card-foreground: 0 0% 100%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 12%;          /* #1f1f1f elevated surface */
+    --popover-foreground: 0 0% 100%;
 
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 0 0% 12%;            /* #1f1f1f */
+    --muted-foreground: 0 0% 70%; /* #b3b3b3 silver */
 
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 141 72% 47%;        /* #1ed760 Spotify Green */
+    --accent-foreground: 0 0% 0%; /* #000000 on green */
 
-    --destructive: 0 63% 45%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 354 85% 70%;   /* #f3727f negative red */
+    --destructive-foreground: 0 0% 100%;
 
-    --success: 142 60% 45%;
-    --success-foreground: 222 47% 11%;
+    --success: 141 72% 47%;       /* Spotify Green */
+    --success-foreground: 0 0% 0%;
 
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 213 27% 84%;
+    --border: 0 0% 16%;           /* #282828 */
+    --input: 0 0% 12%;            /* #1f1f1f */
+    --ring: 141 72% 47%;          /* Spotify Green focus ring */
   }
 
   * {
@@ -80,4 +55,51 @@
   #root {
     height: 100%;
   }
+}
+
+/* 전역 커스텀 스크롤바 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 2px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* 칸반 컬럼 — 하위 호환 유지 */
+.kanban-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+
+/* MDEditor가 flex 부모 안에서 100% 높이로 채워지도록 */
+.w-md-editor {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.w-md-editor-content {
+  flex: 1 !important;
+  min-height: 0 !important;
+}
+
+.w-md-editor-input,
+.w-md-editor-preview {
+  height: 100% !important;
+  overflow-y: auto !important;
 }
