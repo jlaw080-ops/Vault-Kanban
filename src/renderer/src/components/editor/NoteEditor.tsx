@@ -1,13 +1,33 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import MDEditor from '@uiw/react-md-editor'
-import { X, Save, ExternalLink, FolderOpen, Trash2, AlertTriangle } from 'lucide-react'
+import {
+  X,
+  Save,
+  ExternalLink,
+  FolderOpen,
+  Trash2,
+  AlertTriangle,
+  Tag,
+  Calendar,
+  FolderKanban,
+  CircleDot,
+  Flag,
+  Clock,
+  Plus,
+  Eye,
+  Code,
+  Columns2
+} from 'lucide-react'
 import { useVaultStore } from '../../stores/vaultStore'
 import { useViewStore } from '../../stores/viewStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { rehypeWikilinks } from '../../lib/rehypeWikilinks'
+import { cn } from '../../lib/utils'
 import type { Note, Status, Priority } from '@renderer/types'
 
-const STATUS_OPTIONS: Status[] = ['백로그', '예정', '진행중', '검토', '완료']
+type PreviewMode = 'edit' | 'live' | 'preview'
+
+const STATUS_OPTIONS: Status[] = ['backlog', 'planned', 'in-progress', 'review', 'done']
 const PRIORITY_OPTIONS: { value: Priority | ''; label: string }[] = [
   { value: '', label: '없음' },
   { value: 'high', label: 'high' },
@@ -19,16 +39,51 @@ interface ConflictState {
   externalNote: Note
 }
 
+function PropRow({
+  icon,
+  label,
+  children
+}: {
+  icon: React.ReactNode
+  label: string
+  children: React.ReactNode
+}): JSX.Element {
+  return (
+    <div className="flex items-center min-h-[28px] group">
+      <div className="flex items-center gap-1.5 w-28 flex-shrink-0 text-muted-foreground text-xs py-0.5">
+        {icon}
+        <span>{label}</span>
+      </div>
+      <div className="flex-1 min-w-0">{children}</div>
+    </div>
+  )
+}
+
+const propInputCls =
+  'w-full text-xs bg-transparent border-0 text-foreground focus:outline-none focus:bg-muted rounded px-1.5 py-0.5 hover:bg-muted transition-colors placeholder:text-muted-foreground/50'
+
+const propSelectCls =
+  'text-xs bg-transparent border-0 text-foreground focus:outline-none focus:bg-muted rounded px-1.5 py-0.5 hover:bg-muted transition-colors cursor-pointer'
+
 export function NoteEditor(): JSX.Element | null {
-  const { selectedNote, closeNote, updateNote } = useVaultStore()
+  const { selectedNote, closeNote, updateNote, notes } = useVaultStore()
   const { pushToast } = useViewStore()
   const { settings } = useSettingsStore()
+
+  const allProjects = useMemo(() => {
+    const s = new Set<string>()
+    for (const n of notes) {
+      if (n.project) s.add(n.project)
+    }
+    return [...s].sort()
+  }, [notes])
 
   const [draft, setDraft] = useState<Note | null>(() => (selectedNote ? { ...selectedNote } : null))
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [conflict, setConflict] = useState<ConflictState | null>(null)
   const [tagInput, setTagInput] = useState('')
+  const [preview, setPreview] = useState<PreviewMode>('edit')
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -135,58 +190,86 @@ export function NoteEditor(): JSX.Element | null {
 
   if (!selectedNote || !draft) return null
 
+  const iconProps = { size: 13, className: 'flex-shrink-0' }
+
   return (
-    <div className="flex flex-col h-full border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 w-[480px] flex-shrink-0">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 dark:border-slate-800">
-        <div className="flex items-center gap-2">
+    <div className="flex flex-col h-full border-l border-border bg-background w-full">
+
+      {/* Toolbar */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-card flex-shrink-0">
+        <div className="flex items-center gap-1.5">
           {dirty && (
-            <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-              {saving ? '저장 중…' : '수정됨'}
+            <span className="text-xs text-amber-500 font-medium">
+              {saving ? '저장 중…' : '●'}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
+          {/* Preview mode toggles */}
+          <div className="flex items-center mr-2 border border-border rounded-md overflow-hidden">
+            {([
+              { mode: 'edit' as const, icon: <Code size={12} />, title: '편집' },
+              { mode: 'live' as const, icon: <Columns2 size={12} />, title: '분할' },
+              { mode: 'preview' as const, icon: <Eye size={12} />, title: '미리보기' }
+            ]).map(({ mode, icon, title }) => (
+              <button
+                key={mode}
+                onClick={() => setPreview(mode)}
+                title={title}
+                className={cn(
+                  'px-2 py-1 text-xs transition-colors',
+                  preview === mode
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-muted-foreground hover:bg-muted'
+                )}
+              >
+                {icon}
+              </button>
+            ))}
+          </div>
+
           <button
             onClick={() => draft && saveNote(draft)}
             disabled={!dirty || saving}
             title="저장 (Ctrl+S)"
-            className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 text-slate-600 dark:text-slate-400"
+            className="p-1.5 rounded hover:bg-muted disabled:opacity-30 text-muted-foreground transition-colors"
           >
-            <Save size={15} />
+            <Save size={14} />
           </button>
           <button
             onClick={handleOpenObsidian}
             title="Obsidian에서 열기"
-            className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
+            className="p-1.5 rounded hover:bg-muted text-muted-foreground transition-colors"
           >
-            <ExternalLink size={15} />
+            <ExternalLink size={14} />
           </button>
           <button
             onClick={handleShowInFolder}
             title="파일 위치 열기"
-            className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
+            className="p-1.5 rounded hover:bg-muted text-muted-foreground transition-colors"
           >
-            <FolderOpen size={15} />
+            <FolderOpen size={14} />
           </button>
           <button
             onClick={handleDelete}
             title="삭제"
-            className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-950 text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"
+            className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-destructive transition-colors"
           >
-            <Trash2 size={15} />
+            <Trash2 size={14} />
           </button>
           <button
             onClick={closeNote}
             title="닫기 (Esc)"
-            className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
+            className="p-1.5 rounded hover:bg-muted text-muted-foreground transition-colors"
           >
-            <X size={15} />
+            <X size={14} />
           </button>
         </div>
       </div>
 
+      {/* Conflict banner */}
       {conflict && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950 border-b border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs">
+        <div className="flex items-center gap-2 px-4 py-2 bg-amber-950/30 border-b border-amber-800/40 text-amber-400 text-xs flex-shrink-0">
           <AlertTriangle size={13} />
           <span className="flex-1">외부에서 파일이 변경되었습니다.</span>
           <button
@@ -206,119 +289,124 @@ export function NoteEditor(): JSX.Element | null {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-4 flex flex-col gap-3">
+      {/* Scrollable content */}
+      <div className="flex-1 min-h-0 overflow-auto flex flex-col">
+
+        {/* Title */}
+        <div className="px-5 pt-5 pb-2 flex-shrink-0">
           <input
             type="text"
             value={draft.title}
             onChange={(e) => updateDraft({ title: e.target.value })}
-            className="w-full text-base font-semibold bg-transparent border-0 border-b border-slate-200 dark:border-slate-700 pb-1 focus:outline-none focus:border-slate-400 dark:focus:border-slate-500 text-slate-900 dark:text-slate-100"
-            placeholder="제목"
+            className="w-full text-xl font-bold bg-transparent border-0 focus:outline-none text-foreground placeholder:text-muted-foreground/40"
+            placeholder="제목 없음"
           />
+        </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-slate-500 dark:text-slate-400">상태</label>
-              <select
-                value={draft.status}
-                onChange={(e) => updateDraft({ status: e.target.value as Status })}
-                className="text-xs border border-slate-200 dark:border-slate-700 rounded px-2 py-1 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-400"
-              >
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
+        {/* Properties — Obsidian style */}
+        <div className="px-5 py-2 flex flex-col gap-0.5 flex-shrink-0">
+          <PropRow icon={<FolderKanban {...iconProps} />} label="project">
+            <input
+              type="text"
+              list="project-list"
+              value={draft.project ?? ''}
+              onChange={(e) => updateDraft({ project: e.target.value || undefined })}
+              className={propInputCls}
+              placeholder="값 없음"
+            />
+            <datalist id="project-list">
+              {allProjects.map((p) => <option key={p} value={p} />)}
+            </datalist>
+          </PropRow>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-slate-500 dark:text-slate-400">우선순위</label>
-              <select
-                value={draft.priority ?? ''}
-                onChange={(e) =>
-                  updateDraft({ priority: (e.target.value as Priority) || undefined })
-                }
-                className="text-xs border border-slate-200 dark:border-slate-700 rounded px-2 py-1 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-400"
-              >
-                {PRIORITY_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-slate-500 dark:text-slate-400">마감일</label>
-              <input
-                type="date"
-                value={draft.due ?? ''}
-                onChange={(e) => updateDraft({ due: e.target.value || undefined })}
-                className="text-xs border border-slate-200 dark:border-slate-700 rounded px-2 py-1 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-400"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-slate-500 dark:text-slate-400">프로젝트</label>
-              <input
-                type="text"
-                value={draft.project ?? ''}
-                onChange={(e) => updateDraft({ project: e.target.value || undefined })}
-                className="text-xs border border-slate-200 dark:border-slate-700 rounded px-2 py-1 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-400"
-                placeholder="프로젝트명"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-500 dark:text-slate-400">태그</label>
-            <div className="flex flex-wrap gap-1 mb-1">
+          <PropRow icon={<Tag {...iconProps} />} label="tags">
+            <div className="flex flex-wrap items-center gap-1 px-1.5 py-0.5 rounded hover:bg-muted transition-colors">
               {draft.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                  className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full bg-muted text-foreground"
                 >
                   #{tag}
                   <button
                     onClick={() => handleTagRemove(tag)}
-                    className="opacity-60 hover:opacity-100"
+                    className="opacity-50 hover:opacity-100 ml-0.5"
                   >
-                    <X size={10} />
+                    <X size={9} />
                   </button>
                 </span>
               ))}
-            </div>
-            <div className="flex gap-1">
               <input
                 type="text"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    handleTagAdd()
-                  }
+                  if (e.key === 'Enter') { e.preventDefault(); handleTagAdd() }
                 }}
-                placeholder="태그 추가 (Enter)"
-                className="flex-1 text-xs border border-slate-200 dark:border-slate-700 rounded px-2 py-1 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                placeholder={draft.tags.length === 0 ? '태그 추가 (Enter)' : ''}
+                className="flex-1 min-w-[80px] text-xs bg-transparent border-0 focus:outline-none text-foreground placeholder:text-muted-foreground/40"
               />
             </div>
-          </div>
+          </PropRow>
 
-          <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
-            <div data-color-mode="auto">
-              <MDEditor
-                value={draft.body}
-                onChange={(val) => updateDraft({ body: val ?? '' })}
-                preview="live"
-                height={400}
-                visibleDragbar={false}
-                style={{ fontSize: 13 }}
-                previewOptions={{ rehypePlugins: [[rehypeWikilinks]] }}
-              />
-            </div>
-          </div>
+          <PropRow icon={<CircleDot {...iconProps} />} label="상태">
+            <select
+              value={draft.status}
+              onChange={(e) => updateDraft({ status: e.target.value as Status })}
+              className={propSelectCls}
+            >
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </PropRow>
+
+          <PropRow icon={<Flag {...iconProps} />} label="priority">
+            <select
+              value={draft.priority ?? ''}
+              onChange={(e) => updateDraft({ priority: (e.target.value as Priority) || undefined })}
+              className={propSelectCls}
+            >
+              {PRIORITY_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </PropRow>
+
+          <PropRow icon={<Calendar {...iconProps} />} label="마감일">
+            <input
+              type="date"
+              value={draft.due ?? ''}
+              onChange={(e) => updateDraft({ due: e.target.value || undefined })}
+              className={propInputCls}
+            />
+          </PropRow>
+
+          <PropRow icon={<Clock {...iconProps} />} label="created">
+            <span className="text-xs text-muted-foreground px-1.5 py-0.5">
+              {draft.created ? draft.created.slice(0, 10) : '값 없음'}
+            </span>
+          </PropRow>
+
+          <button className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors px-1.5 py-0.5 rounded hover:bg-muted w-fit">
+            <Plus size={12} />
+            속성 추가
+          </button>
+        </div>
+
+        {/* Divider */}
+        <div className="mx-5 border-t border-border flex-shrink-0" />
+
+        {/* Body editor */}
+        <div className="flex-1 min-h-0" data-color-mode="dark">
+          <MDEditor
+            value={draft.body}
+            onChange={(val) => updateDraft({ body: val ?? '' })}
+            preview={preview}
+            height="100%"
+            visibleDragbar={false}
+            style={{ fontSize: 13 }}
+            previewOptions={{ rehypePlugins: [[rehypeWikilinks]] }}
+          />
         </div>
       </div>
     </div>

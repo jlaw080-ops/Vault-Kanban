@@ -6,7 +6,7 @@ import { cn } from '../../lib/utils'
 import { getStayDays, getStayColor } from '../../lib/metrics'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useVaultStore } from '../../stores/vaultStore'
-import type { Note, ColumnConfig } from '@renderer/types'
+import type { Note, ColumnConfig, CardField } from '@renderer/types'
 
 const PRIORITY_DOT: Record<string, string> = {
   high: 'bg-red-500',
@@ -15,9 +15,9 @@ const PRIORITY_DOT: Record<string, string> = {
 }
 
 const STAY_BORDER: Record<string, string> = {
-  default: 'border-slate-200 dark:border-slate-800',
-  yellow: 'border-amber-400 dark:border-amber-500',
-  red: 'border-red-500 dark:border-red-600'
+  default: 'border-border',
+  yellow: 'border-amber-400',
+  red: 'border-destructive'
 }
 
 const MAX_TAGS = 3
@@ -41,6 +41,15 @@ function folderPath(filePath: string): string {
   return parts.slice(-2, -1)[0] ?? ''
 }
 
+function shortDate(dateStr: string | undefined | null): string | null {
+  if (!dateStr) return null
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return null
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
+}
+
+const DEFAULT_CARD_FIELDS: CardField[] = ['priority', 'project', 'created']
+
 interface KanbanCardProps {
   note: Note
   column?: ColumnConfig
@@ -59,6 +68,9 @@ export function KanbanCard({ note, column, isDragOverlay = false }: KanbanCardPr
     transition
   }
 
+  const cardFields = settings?.cardFields ?? DEFAULT_CARD_FIELDS
+  const has = (f: CardField): boolean => cardFields.includes(f)
+
   const stayColor =
     column && settings
       ? getStayColor(getStayDays(note, column, new Date()), settings.stayTimeWarnings)
@@ -69,6 +81,23 @@ export function KanbanCard({ note, column, isDragOverlay = false }: KanbanCardPr
   const dueLabel = relativeDate(note.due)
   const folder = folderPath(note.filePath)
   const isDueOverdue = note.due ? new Date(note.due) < new Date() : false
+  const createdLabel = shortDate(note.created)
+
+  const showTagsRow = has('tags') && visibleTags.length > 0
+  const metaItems = [
+    has('due') && dueLabel
+      ? { key: 'due', label: dueLabel, cls: isDueOverdue ? 'text-destructive' : 'text-muted-foreground' }
+      : null,
+    has('project') && note.project
+      ? { key: 'project', label: note.project, cls: 'text-muted-foreground truncate max-w-[7rem]' }
+      : null,
+    has('created') && createdLabel
+      ? { key: 'created', label: createdLabel, cls: 'text-muted-foreground' }
+      : null,
+    has('folder') && folder
+      ? { key: 'folder', label: folder, cls: 'text-muted-foreground truncate max-w-[7rem]' }
+      : null,
+  ].filter(Boolean) as Array<{ key: string; label: string; cls: string }>
 
   return (
     <div
@@ -80,24 +109,24 @@ export function KanbanCard({ note, column, isDragOverlay = false }: KanbanCardPr
         if (!isDragging) openNote(note)
       }}
       className={cn(
-        'bg-white dark:bg-slate-900',
+        'bg-card',
         'border',
         STAY_BORDER[stayColor],
         'rounded-md p-3 cursor-grab active:cursor-grabbing',
-        'hover:border-slate-300 dark:hover:border-slate-700',
-        stayColor !== 'default' && 'hover:border-amber-500 dark:hover:border-amber-400',
-        stayColor === 'red' && 'hover:border-red-600 dark:hover:border-red-500',
-        'select-none',
+        'hover:shadow-[rgba(0,0,0,0.3)_0px_4px_8px] hover:border-muted-foreground',
+        stayColor !== 'default' && 'hover:border-amber-500',
+        stayColor === 'red' && 'hover:border-destructive',
+        'select-none transition-shadow',
         isDragging && 'opacity-40',
-        isDragOverlay && 'scale-105 shadow-lg'
+        isDragOverlay && 'scale-105 shadow-[rgba(0,0,0,0.5)_0px_8px_24px]'
       )}
     >
       <div className="flex items-start justify-between gap-1">
-        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 line-clamp-1 flex-1 min-w-0">
+        <p className="text-xs font-bold text-foreground line-clamp-2 flex-1 min-w-0">
           {note.title}
         </p>
         <div className="flex items-center gap-1 flex-shrink-0">
-          {note.priority && (
+          {has('priority') && note.priority && (
             <span
               className={cn('w-2 h-2 rounded-full flex-shrink-0', PRIORITY_DOT[note.priority])}
               title={note.priority}
@@ -112,7 +141,7 @@ export function KanbanCard({ note, column, isDragOverlay = false }: KanbanCardPr
         </div>
       </div>
 
-      {(visibleTags.length > 0 || folder) && (
+      {showTagsRow && (
         <div className="mt-2 flex flex-wrap items-center gap-1">
           {visibleTags.map((tag) => (
             <Badge key={tag} variant="secondary" className="text-xs px-1.5 py-0">
@@ -120,30 +149,18 @@ export function KanbanCard({ note, column, isDragOverlay = false }: KanbanCardPr
             </Badge>
           ))}
           {extraTags > 0 && (
-            <span className="text-xs text-slate-400 dark:text-slate-500">+{extraTags}</span>
+            <span className="text-xs text-muted-foreground">+{extraTags}</span>
           )}
         </div>
       )}
 
-      {(dueLabel || folder) && (
-        <div className="mt-2 flex items-center justify-between">
-          {dueLabel && (
-            <span
-              className={cn(
-                'text-xs',
-                isDueOverdue
-                  ? 'text-red-500 dark:text-red-400'
-                  : 'text-slate-500 dark:text-slate-400'
-              )}
-            >
-              {dueLabel}
+      {metaItems.length > 0 && (
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
+          {metaItems.map((item) => (
+            <span key={item.key} className={cn('text-xs', item.cls)}>
+              {item.label}
             </span>
-          )}
-          {folder && (
-            <span className="text-xs text-slate-400 dark:text-slate-500 truncate max-w-[8rem]">
-              {folder}
-            </span>
-          )}
+          ))}
         </div>
       )}
     </div>

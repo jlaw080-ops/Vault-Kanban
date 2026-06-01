@@ -5,14 +5,14 @@ import { useVaultStore } from '../../stores/vaultStore'
 import { useViewStore } from '../../stores/viewStore'
 import type { Note } from '@renderer/types'
 
-type MappingValue = '백로그' | '예정' | '진행중' | '검토' | '완료' | 'skip'
-const STANDARD: MappingValue[] = ['백로그', '예정', '진행중', '검토', '완료', 'skip']
+type MappingValue = 'backlog' | 'planned' | 'in-progress' | 'review' | 'done' | 'skip'
+const STANDARD: MappingValue[] = ['backlog', 'planned', 'in-progress', 'review', 'done', 'skip']
 const STANDARD_LABELS: Record<MappingValue, string> = {
-  백로그: '백로그',
-  예정: '예정',
-  진행중: '진행중',
-  검토: '검토',
-  완료: '완료',
+  backlog: 'backlog',
+  planned: 'planned',
+  'in-progress': 'in-progress',
+  review: 'review',
+  done: 'done',
   skip: '건너뜀 (변경 안 함)'
 }
 
@@ -137,7 +137,7 @@ export function StatusMigrationWizard({ onClose }: Props): JSX.Element {
                 </p>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                표준 값: 백로그 · 예정 · 진행중 · 검토 · 완료
+                표준 값: backlog · planned · in-progress · review · done
               </p>
             </div>
           )}

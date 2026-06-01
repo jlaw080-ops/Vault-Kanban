@@ -49,29 +49,28 @@ describe('scanStatusValues', () => {
 
 describe('suggestMapping', () => {
   it('maps already-standard values to themselves', () => {
-    expect(suggestMapping('백로그')).toBe('백로그')
-    expect(suggestMapping('예정')).toBe('예정')
-    expect(suggestMapping('진행중')).toBe('진행중')
-    expect(suggestMapping('검토')).toBe('검토')
-    expect(suggestMapping('완료')).toBe('완료')
+    expect(suggestMapping('backlog')).toBe('backlog')
+    expect(suggestMapping('planned')).toBe('planned')
+    expect(suggestMapping('in-progress')).toBe('in-progress')
+    expect(suggestMapping('review')).toBe('review')
+    expect(suggestMapping('done')).toBe('done')
   })
 
   it('maps common English values', () => {
-    expect(suggestMapping('in progress')).toBe('진행중')
-    expect(suggestMapping('In Progress')).toBe('진행중')
-    expect(suggestMapping('done')).toBe('완료')
-    expect(suggestMapping('Done')).toBe('완료')
-    expect(suggestMapping('todo')).toBe('백로그')
-    expect(suggestMapping('TODO')).toBe('백로그')
-    expect(suggestMapping('backlog')).toBe('백로그')
-    expect(suggestMapping('review')).toBe('검토')
-    expect(suggestMapping('planned')).toBe('예정')
+    expect(suggestMapping('in progress')).toBe('in-progress')
+    expect(suggestMapping('In Progress')).toBe('in-progress')
+    expect(suggestMapping('Done')).toBe('done')
+    expect(suggestMapping('todo')).toBe('backlog')
+    expect(suggestMapping('TODO')).toBe('backlog')
+    expect(suggestMapping('백로그')).toBe('backlog')
+    expect(suggestMapping('검토중')).toBe('review')
+    expect(suggestMapping('예정')).toBe('planned')
   })
 
   it('maps common Korean variants', () => {
-    expect(suggestMapping('진행')).toBe('진행중')
-    expect(suggestMapping('완료됨')).toBe('완료')
-    expect(suggestMapping('검토중')).toBe('검토')
+    expect(suggestMapping('진행')).toBe('in-progress')
+    expect(suggestMapping('완료됨')).toBe('done')
+    expect(suggestMapping('검토')).toBe('review')
   })
 
   it('returns ask for unrecognized values', () => {
@@ -89,9 +88,9 @@ describe('suggestMapping', () => {
 describe('applyMapping', () => {
   it('transforms note status per mapping', () => {
     const note = makeNote({ status: 'TBD' })
-    const mapping = new Map<string | null, Note['status'] | 'skip'>([['TBD', '백로그']])
+    const mapping = new Map<string | null, Note['status'] | 'skip'>([['TBD', 'backlog']])
     const result = applyMapping(note, mapping)
-    expect(result.status).toBe('백로그')
+    expect(result.status).toBe('backlog')
   })
 
   it('leaves note unchanged when mapping is skip', () => {
@@ -110,23 +109,23 @@ describe('applyMapping', () => {
 
   it('does not mutate the original note', () => {
     const note = makeNote({ status: 'TBD' })
-    const mapping = new Map<string | null, Note['status'] | 'skip'>([['TBD', '백로그']])
+    const mapping = new Map<string | null, Note['status'] | 'skip'>([['TBD', 'backlog']])
     applyMapping(note, mapping)
     expect(note.status).toBe('TBD')
   })
 
   it('preserves all other note fields', () => {
     const note = makeNote({ status: 'done', title: 'My Note', tags: ['a', 'b'] })
-    const mapping = new Map<string | null, Note['status'] | 'skip'>([['done', '완료']])
+    const mapping = new Map<string | null, Note['status'] | 'skip'>([['done', 'done']])
     const result = applyMapping(note, mapping)
     expect(result.title).toBe('My Note')
     expect(result.tags).toEqual(['a', 'b'])
   })
 
   it('keeps status unchanged if already standard and in mapping as itself', () => {
-    const note = makeNote({ status: '완료' })
-    const mapping = new Map<string | null, Note['status'] | 'skip'>([['완료', '완료']])
+    const note = makeNote({ status: 'done' })
+    const mapping = new Map<string | null, Note['status'] | 'skip'>([['done', 'done']])
     const result = applyMapping(note, mapping)
-    expect(result.status).toBe('완료')
+    expect(result.status).toBe('done')
   })
 })

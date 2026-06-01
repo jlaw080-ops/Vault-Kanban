@@ -1,11 +1,12 @@
 import type { Note, Priority } from '@renderer/types'
 
 type Grouping = 'status' | 'tag' | 'folder' | 'project'
-type SortKey = 'modifiedDesc' | 'modifiedAsc' | 'createdDesc' | 'createdAsc' | 'titleAsc' | 'dueAsc'
+type SortKey = 'modifiedDesc' | 'modifiedAsc' | 'createdDesc' | 'createdAsc' | 'titleAsc' | 'dueAsc' | 'priorityDesc'
 
 export interface Filters {
   tags: string[]
   folders: string[]
+  projects: string[]
   priority: Priority | 'none' | 'all'
   keyword: string
 }
@@ -34,7 +35,7 @@ export function groupNotes(notes: Note[], grouping: Grouping): Map<string, Note[
         }
       }
     } else if (grouping === 'folder') {
-      const parts = note.relativePath.split('/')
+      const parts = note.relativePath.replace(/\\/g, '/').split('/')
       const folder = parts.length > 1 ? parts[0] : '(루트)'
       addTo(folder, note)
     } else if (grouping === 'project') {
@@ -66,6 +67,14 @@ export function sortNotes(notes: Note[], sort: SortKey): Note[] {
         if (!b.due) return -1
         return a.due.localeCompare(b.due)
       })
+    case 'priorityDesc': {
+      const order: Record<string, number> = { high: 0, mid: 1, low: 2 }
+      return copy.sort((a, b) => {
+        const oa = a.priority !== undefined ? order[a.priority] : 3
+        const ob = b.priority !== undefined ? order[b.priority] : 3
+        return oa - ob
+      })
+    }
   }
 }
 
@@ -85,8 +94,15 @@ export function filterNotes(notes: Note[], filters: Filters): Note[] {
 
   if (filters.folders.length > 0) {
     result = result.filter((n) => {
-      const folder = n.relativePath.split('/')[0]
+      const folder = n.relativePath.replace(/\\/g, '/').split('/')[0]
       return filters.folders.includes(folder)
+    })
+  }
+
+  if ((filters.projects?.length ?? 0) > 0) {
+    result = result.filter((n) => {
+      const proj = n.project ?? '(미분류)'
+      return filters.projects.includes(proj)
     })
   }
 

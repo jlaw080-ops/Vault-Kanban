@@ -4,6 +4,27 @@ export type DateRange = { from: Date; to: Date }
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24
 
+function resolveStarted(note: Note): Date | null {
+  if (note.started) {
+    const d = new Date(note.started)
+    if (!isNaN(d.getTime())) return d
+  }
+  if (note.status === 'done' && note.created) {
+    const d = new Date(note.created)
+    if (!isNaN(d.getTime())) return d
+  }
+  return null
+}
+
+function resolveCompleted(note: Note): Date | null {
+  if (note.completed) {
+    const d = new Date(note.completed)
+    if (!isNaN(d.getTime())) return d
+  }
+  if (note.status === 'done') return new Date(note.mtime)
+  return null
+}
+
 function daysDiff(fromMs: number, toDate: Date): number {
   return Math.max(0, Math.floor((toDate.getTime() - fromMs) / MS_PER_DAY))
 }
@@ -11,11 +32,11 @@ function daysDiff(fromMs: number, toDate: Date): number {
 export function getStayDays(note: Note, column: ColumnConfig, now: Date): number {
   const colName = column.name
 
-  if (colName === '백로그' || colName === '예정') {
+  if (colName === 'backlog' || colName === 'planned') {
     return daysDiff(new Date(note.created).getTime(), now)
   }
 
-  if (colName === '진행중') {
+  if (colName === 'in-progress') {
     if (note.started) {
       return daysDiff(new Date(note.started).getTime(), now)
     }
@@ -27,19 +48,20 @@ export function getStayDays(note: Note, column: ColumnConfig, now: Date): number
 }
 
 export function computeLeadTime(note: Note): number | undefined {
-  if (!note.created || !note.completed) return undefined
+  if (!note.created) return undefined
+  const completed = resolveCompleted(note)
+  if (!completed) return undefined
   const from = new Date(note.created).getTime()
-  const to = new Date(note.completed).getTime()
-  if (isNaN(from) || isNaN(to)) return undefined
-  return Math.floor((to - from) / MS_PER_DAY)
+  if (isNaN(from)) return undefined
+  return Math.floor((completed.getTime() - from) / MS_PER_DAY)
 }
 
 export function computeCycleTime(note: Note): number | undefined {
-  if (!note.started || !note.completed) return undefined
-  const from = new Date(note.started).getTime()
-  const to = new Date(note.completed).getTime()
-  if (isNaN(from) || isNaN(to)) return undefined
-  return Math.floor((to - from) / MS_PER_DAY)
+  const started = resolveStarted(note)
+  if (!started) return undefined
+  const completed = resolveCompleted(note)
+  if (!completed) return undefined
+  return Math.floor((completed.getTime() - started.getTime()) / MS_PER_DAY)
 }
 
 function toDateStr(date: Date): string {
@@ -89,9 +111,8 @@ export function computeThroughput(
   for (const k of buckets) counts.set(k, 0)
 
   for (const note of notes) {
-    if (!note.completed) continue
-    const d = new Date(note.completed)
-    if (isNaN(d.getTime())) continue
+    const d = resolveCompleted(note)
+    if (!d || isNaN(d.getTime())) continue
     if (d < range.from || d > range.to) continue
     const key = bucketKey(d, bucket)
     if (counts.has(key)) counts.set(key, (counts.get(key) ?? 0) + 1)
@@ -102,32 +123,32 @@ export function computeThroughput(
 
 type CfdRow = {
   date: string
-  백로그: number
-  예정: number
-  진행중: number
-  검토: number
-  완료: number
+  backlog: number
+  planned: number
+  'in-progress': number
+  review: number
+  done: number
 }
 
 export function buildCfd(notes: Note[], range: DateRange, bucket: 'day' | 'week'): CfdRow[] {
   const buckets = eachBucketInRange(range, bucket)
   return buckets.map((dateStr) => {
     const t = new Date(dateStr + 'T00:00:00Z')
-    const row: CfdRow = { date: dateStr, 백로그: 0, 예정: 0, 진행중: 0, 검토: 0, 완료: 0 }
+    const row: CfdRow = { date: dateStr, backlog: 0, planned: 0, 'in-progress': 0, review: 0, done: 0 }
     for (const note of notes) {
       if (!note.created) continue
       const created = new Date(note.created)
       if (isNaN(created.getTime()) || t < created) continue
 
-      const completed = note.completed ? new Date(note.completed) : null
+      const completed = resolveCompleted(note)
       const started = note.started ? new Date(note.started) : null
 
       if (completed && !isNaN(completed.getTime()) && t >= completed) {
-        row['완료']++
+        row['done']++
       } else if (started && !isNaN(started.getTime()) && t >= started) {
-        row['진행중']++
+        row['in-progress']++
       } else {
-        row['백로그']++
+        row['backlog']++
       }
     }
     return row

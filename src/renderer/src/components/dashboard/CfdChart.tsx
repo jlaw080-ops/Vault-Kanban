@@ -11,7 +11,7 @@ interface CfdChartProps {
   range: DateRange
 }
 
-const STATUS_KEYS = ['백로그', '예정', '진행중', '검토', '완료'] as const
+const STATUS_KEYS = ['backlog', 'planned', 'in-progress', 'review', 'done'] as const
 
 export function CfdChart({ notes, range }: CfdChartProps): JSX.Element {
   const data = useMemo(() => {
@@ -24,27 +24,33 @@ export function CfdChart({ notes, range }: CfdChartProps): JSX.Element {
   }
 
   return (
-    <div>
-      <ResponsiveContainer width="100%" height={200}>
-        <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-          <XAxis dataKey="date" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-          <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-          <Tooltip />
-          <Legend iconSize={10} wrapperStyle={{ fontSize: 11 }} />
-          {STATUS_KEYS.map((key) => (
-            <Area
-              key={key}
-              type="monotone"
-              dataKey={key}
-              stackId="1"
-              stroke={STATUS_COLORS[key]}
-              fill={STATUS_COLORS[key]}
-              fillOpacity={0.7}
+    <div className="flex flex-col h-full">
+      <div className="flex-1 min-h-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+            <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#b3b3b3' }} interval="preserveStartEnd" />
+            <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#b3b3b3' }} />
+            <Tooltip
+              contentStyle={{ backgroundColor: '#1f1f1f', border: '1px solid #282828', borderRadius: '4px', fontSize: 11 }}
+              labelStyle={{ color: '#ffffff', fontWeight: 500 }}
+              itemStyle={{ color: '#b3b3b3' }}
             />
-          ))}
-        </AreaChart>
-      </ResponsiveContainer>
-      <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+            <Legend iconSize={10} wrapperStyle={{ fontSize: 11, color: '#b3b3b3' }} />
+            {STATUS_KEYS.map((key) => (
+              <Area
+                key={key}
+                type="monotone"
+                dataKey={key}
+                stackId="1"
+                stroke={STATUS_COLORS[key]}
+                fill={STATUS_COLORS[key]}
+                fillOpacity={0.7}
+              />
+            ))}
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 flex-shrink-0">
         ⚠️ 근사치: created/started/completed 3시점 기반. 중간 상태 이력은 반영되지 않습니다.
       </p>
     </div>

@@ -38,13 +38,17 @@ export function ThroughputChart({ notes, range }: ThroughputChartProps): JSX.Ele
   }
 
   return (
-    <ResponsiveContainer width="100%" height={200}>
+    <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-        <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-        <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-        <Tooltip />
-        <Legend iconSize={10} wrapperStyle={{ fontSize: 11 }} />
-        <Bar dataKey="count" fill="#10b981" name="주별 완료" radius={[2, 2, 0, 0]} />
+        <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#b3b3b3' }} />
+        <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#b3b3b3' }} />
+        <Tooltip
+          contentStyle={{ backgroundColor: '#1f1f1f', border: '1px solid #282828', borderRadius: '4px', fontSize: 11 }}
+          labelStyle={{ color: '#ffffff', fontWeight: 500 }}
+          itemStyle={{ color: '#b3b3b3' }}
+        />
+        <Legend iconSize={10} wrapperStyle={{ fontSize: 11, color: '#b3b3b3' }} />
+        <Bar dataKey="count" fill="#1ed760" name="주별 완료" radius={[2, 2, 0, 0]} />
         <Line
           dataKey="ma"
           stroke="#f59e0b"

@@ -3,14 +3,14 @@ import type { Note } from '@renderer/types'
 type Status = Note['status']
 type MappingValue = Status | 'skip'
 
-const STANDARD: Status[] = ['백로그', '예정', '진행중', '검토', '완료']
+const STANDARD: Status[] = ['backlog', 'planned', 'in-progress', 'review', 'done']
 
 const SUGGEST_TABLE: Array<[RegExp, Status]> = [
-  [/^(in.?progress|진행중?|진행\s*중)$/i, '진행중'],
-  [/^(done|완료됨?|finished|complete[d]?)$/i, '완료'],
-  [/^(todo|backlog|백로그|to.?do)$/i, '백로그'],
-  [/^(planned?|예정|scheduled|upcoming)$/i, '예정'],
-  [/^(review|검토중?|in.?review|reviewing)$/i, '검토']
+  [/^(in.?progress|진행중?|진행\s*중)$/i, 'in-progress'],
+  [/^(done|완료됨?|finished|complete[d]?)$/i, 'done'],
+  [/^(todo|backlog|백로그|to.?do)$/i, 'backlog'],
+  [/^(planned?|예정|scheduled|upcoming)$/i, 'planned'],
+  [/^(review|검토중?|in.?review|reviewing)$/i, 'review']
 ]
 
 export function scanStatusValues(notes: Note[]): Map<string | null, number> {

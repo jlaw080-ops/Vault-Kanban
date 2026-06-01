@@ -1,7 +1,7 @@
 import type { Note, Status } from '../types'
 
-const COMPLETED_STATUS: Status = '완료'
-const IN_PROGRESS_STATUS: Status = '진행중'
+const COMPLETED_STATUS: Status = 'done'
+const IN_PROGRESS_STATUS: Status = 'in-progress'
 
 export function apply(note: Readonly<Note>, newStatus: Status, now: Date): Note {
   const next: Note = { ...note, status: newStatus }

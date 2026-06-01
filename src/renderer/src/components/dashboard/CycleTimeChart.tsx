@@ -36,23 +36,35 @@ export function CycleTimeChart({ notes }: CycleTimeChartProps): JSX.Element {
   }
 
   return (
-    <ResponsiveContainer width="100%" height={200}>
+    <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data.rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-        <XAxis dataKey="days" tick={{ fontSize: 11 }} />
-        <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-        <Tooltip />
-        <Bar dataKey="count" fill="#8b5cf6" name="건수" radius={[2, 2, 0, 0]} />
+        <XAxis dataKey="days" tick={{ fontSize: 11, fill: '#b3b3b3' }} />
+        <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#b3b3b3' }} />
+        <Tooltip
+          contentStyle={{ backgroundColor: '#1f1f1f', border: '1px solid #282828', borderRadius: '4px', fontSize: 11 }}
+          labelStyle={{ color: '#ffffff', fontWeight: 500 }}
+          itemStyle={{ color: '#b3b3b3' }}
+        />
+        <Bar dataKey="count" fill="#a78bfa" name="건수" radius={[2, 2, 0, 0]} />
+        <ReferenceLine
+          x={`${data.median}일`}
+          stroke="#34d399"
+          strokeDasharray="3 3"
+          label={(props: { viewBox?: { x?: number; y?: number } }) => (
+            <text x={(props.viewBox?.x ?? 0) + 4} y={(props.viewBox?.y ?? 0) + 14} fontSize={10} fill="#34d399">
+              중앙값 {data.median}일
+            </text>
+          )}
+        />
         <ReferenceLine
           x={`${Math.round(data.avg)}일`}
           stroke="#f59e0b"
           strokeDasharray="3 3"
-          label={{ value: `평균 ${data.avg.toFixed(1)}일`, position: 'top', fontSize: 10 }}
-        />
-        <ReferenceLine
-          x={`${data.median}일`}
-          stroke="#10b981"
-          strokeDasharray="3 3"
-          label={{ value: `중앙값 ${data.median}일`, position: 'insideTopRight', fontSize: 10 }}
+          label={(props: { viewBox?: { x?: number; y?: number } }) => (
+            <text x={(props.viewBox?.x ?? 0) + 4} y={(props.viewBox?.y ?? 0) + 30} fontSize={10} fill="#f59e0b">
+              평균 {data.avg.toFixed(1)}일
+            </text>
+          )}
         />
       </BarChart>
     </ResponsiveContainer>

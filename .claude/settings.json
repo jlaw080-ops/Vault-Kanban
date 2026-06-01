@@ -1,5 +1,5 @@
 {
-  "$schema": "https://claude.ai/schemas/settings.json",
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "description": "Vault Kanban - Harness 프레임워크 hooks 설정. 피드백 레이어.",
   "hooks": {
     "Stop": [

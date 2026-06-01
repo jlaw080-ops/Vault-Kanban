@@ -13,9 +13,10 @@ import { groupNotes, sortNotes, filterNotes } from '../../lib/viewModel'
 import { KanbanColumn } from './KanbanColumn'
 import { KanbanCard } from './KanbanCard'
 import { useViewStore } from '../../stores/viewStore'
+import { useSettingsStore } from '../../stores/settingsStore'
 import type { Note, Status, ColumnConfig } from '@renderer/types'
 
-const STATUS_COLUMNS: readonly Status[] = ['백로그', '예정', '진행중', '검토', '완료']
+const STATUS_COLUMNS: readonly Status[] = ['backlog', 'planned', 'in-progress', 'review', 'done']
 
 interface ColumnEntry {
   id: string
@@ -33,10 +34,21 @@ interface KanbanBoardProps {
 export function KanbanBoard({ notes, columns, onNoteUpdate }: KanbanBoardProps): JSX.Element {
   const [activeNote, setActiveNote] = useState<Note | null>(null)
   const { grouping, sort, filters, pushToast } = useViewStore()
+  const { settings } = useSettingsStore()
+  const pageSize = settings?.columnPageSize ?? 5
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
-  const filteredNotes = useMemo(() => filterNotes(notes, filters), [notes, filters])
+  const displayNotes = useMemo(() => {
+    const excluded = settings?.displayExcludedFolders ?? []
+    if (excluded.length === 0) return notes
+    return notes.filter((n) => {
+      const normPath = n.relativePath.replace(/\\/g, '/')
+      return !excluded.some((ex) => normPath === ex || normPath.startsWith(ex + '/'))
+    })
+  }, [notes, settings?.displayExcludedFolders])
+
+  const filteredNotes = useMemo(() => filterNotes(displayNotes, filters), [displayNotes, filters])
   const sortedNotes = useMemo(() => sortNotes(filteredNotes, sort), [filteredNotes, sort])
   const grouped = useMemo(() => groupNotes(sortedNotes, grouping), [sortedNotes, grouping])
 
@@ -199,6 +211,7 @@ export function KanbanBoard({ notes, columns, onNoteUpdate }: KanbanBoardProps):
             label={col.label}
             notes={col.notes}
             column={col.config}
+            pageSize={pageSize}
           />
         ))}
       </div>

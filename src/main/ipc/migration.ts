@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { parseNote, serializeNote } from '../utils/markdown'
 import { createBackup, listBackups, restoreBackup } from '../utils/backup'
+import { getSettingValue } from './settings'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
@@ -41,7 +42,8 @@ export function registerMigrationHandlers(): void {
         try {
           const raw = fs.readFileSync(filePath, 'utf-8')
           const mtime = fs.statSync(filePath).mtimeMs
-          const note = parseNote(filePath, raw, mtime)
+          const statusFieldName = getSettingValue('statusFieldName')
+          const note = parseNote(filePath, raw, mtime, statusFieldName)
           const key: string | null =
             note.status === undefined || note.status === null || (note.status as string) === ''
               ? null
@@ -50,7 +52,7 @@ export function registerMigrationHandlers(): void {
           if (mapped === undefined || mapped === 'skip') continue
 
           const updated = { ...note, status: mapped as typeof note.status }
-          const serialized = serializeNote(updated)
+          const serialized = serializeNote(updated, statusFieldName)
           fs.writeFileSync(filePath, serialized, 'utf-8')
           migrated++
         } catch (err) {

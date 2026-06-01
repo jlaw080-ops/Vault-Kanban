@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { Note, Settings } from '../main/utils/markdown'
 import type { AiNoteInput, AiGroupResult, RelatedResult } from '../main/ipc/ai'
+import type { FolderNode } from '../main/ipc/vault'
 
 const vault = {
   select: (): Promise<string | null> => ipcRenderer.invoke('vault:select'),
@@ -15,7 +16,9 @@ const vault = {
   ): Promise<{ ok: true } | { ok: false; error: string }> =>
     ipcRenderer.invoke('vault:moveNote', oldPath, newPath),
   deleteNote: (filePath: string): Promise<{ ok: boolean; error?: string }> =>
-    ipcRenderer.invoke('vault:deleteNote', filePath)
+    ipcRenderer.invoke('vault:deleteNote', filePath),
+  listFolders: (vaultPath: string, excluded?: string[]): Promise<FolderNode[]> =>
+    ipcRenderer.invoke('vault:listFolders', vaultPath, excluded)
 }
 
 const watcher = {

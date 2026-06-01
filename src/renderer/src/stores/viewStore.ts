@@ -16,11 +16,12 @@ export interface Toast {
 export interface ViewFilters {
   tags: string[]
   folders: string[]
+  projects: string[]
   priority: Priority | 'none' | 'all'
   keyword: string
 }
 
-export type AppRoute = 'kanban' | 'dashboard' | 'migration' | 'settings'
+export type AppRoute = 'kanban' | 'dashboard' | 'migration' | 'settings' | 'daily'
 
 interface ViewState {
   grouping: Grouping
@@ -40,6 +41,7 @@ interface ViewState {
 const DEFAULT_FILTERS: ViewFilters = {
   tags: [],
   folders: [],
+  projects: [],
   priority: 'all',
   keyword: ''
 }
@@ -70,6 +72,18 @@ export const useViewStore = create<ViewState>()(
     }),
     {
       name: 'vault-kanban-view',
+      version: 2,
+      migrate: (persisted: unknown, version: number) => {
+        const s = persisted as { filters?: Partial<ViewFilters>; grouping?: string }
+        if (version < 1 && s?.filters && !s.filters.projects) {
+          s.filters.projects = []
+        }
+        if (version < 2 && s?.grouping) {
+          const map: Record<string, string> = { '상태': 'status', '태그': 'tag', '폴더': 'folder', '프로젝트': 'project' }
+          if (map[s.grouping]) s.grouping = map[s.grouping]
+        }
+        return s as ViewState
+      },
       partialize: (state) => ({
         grouping: state.grouping,
         sort: state.sort,

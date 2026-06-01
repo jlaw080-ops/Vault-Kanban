@@ -1,9 +1,10 @@
 import { ipcMain, BrowserWindow, shell } from 'electron'
 import chokidar, { FSWatcher } from 'chokidar'
-import { readSingleNote, isRecentlyWrittenByApp } from './vault'
+import { readSingleNote, isRecentlyWrittenByApp, computeRelativePath } from './vault'
 import { promises as fs } from 'fs'
 
 let watcher: FSWatcher | null = null
+let currentVaultPath = ''
 const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 function getMainWindow(): BrowserWindow | null {
@@ -26,6 +27,7 @@ export function registerWatcherHandlers(): void {
   ipcMain.handle(
     'watcher:start',
     async (_event, vaultPath: string, excluded: string[]): Promise<void> => {
+      currentVaultPath = vaultPath
       if (watcher) {
         await watcher.close()
         watcher = null
@@ -48,8 +50,11 @@ export function registerWatcherHandlers(): void {
         debounce(filePath, async () => {
           try {
             const note = await readSingleNote(filePath)
+            const relativePath = currentVaultPath
+              ? computeRelativePath(currentVaultPath, filePath)
+              : note.relativePath
             const win = getMainWindow()
-            win?.webContents.send('note:external-change', note)
+            win?.webContents.send('note:external-change', { ...note, relativePath })
           } catch {
             // ignore unreadable files
           }

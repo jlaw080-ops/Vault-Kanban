@@ -1,6 +1,7 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type { Note, Settings } from '../main/utils/markdown'
 import type { AiNoteInput, AiGroupResult, RelatedResult } from '../main/ipc/ai'
+import type { FolderNode } from '../main/ipc/vault'
 
 export interface VaultApi {
   select: () => Promise<string | null>
@@ -12,6 +13,7 @@ export interface VaultApi {
     newPath: string
   ) => Promise<{ ok: true } | { ok: false; error: string }>
   deleteNote: (filePath: string) => Promise<{ ok: boolean; error?: string }>
+  listFolders: (vaultPath: string, excluded?: string[]) => Promise<FolderNode[]>
 }
 
 export interface WatcherApi {

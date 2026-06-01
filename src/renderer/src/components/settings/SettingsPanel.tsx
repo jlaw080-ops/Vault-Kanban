@@ -12,11 +12,15 @@ import {
   Info,
   Plus,
   Trash2,
-  GripVertical
+  GripVertical,
+  SlidersHorizontal,
+  Shuffle
 } from 'lucide-react'
 import { useViewStore } from '../../stores/viewStore'
 import { useSettingsStore } from '../../stores/settingsStore'
-import type { ColumnConfig } from '@renderer/types'
+import { StatusMigrationWizard } from '../migration/StatusMigrationWizard'
+import { FolderTreePicker } from './FolderTreePicker'
+import type { ColumnConfig, CardField } from '@renderer/types'
 
 const MODEL_OPTIONS = [
   { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 (빠름, 저비용)' },
@@ -30,18 +34,28 @@ const GROUPING_OPTIONS = [
   { value: 'project', label: '프로젝트별' }
 ]
 
+const CARD_FIELD_OPTIONS: { value: CardField; label: string }[] = [
+  { value: 'priority', label: '우선순위' },
+  { value: 'project', label: '프로젝트' },
+  { value: 'created', label: '생성일' },
+  { value: 'due', label: '기한' },
+  { value: 'tags', label: '태그' },
+  { value: 'folder', label: '폴더' }
+]
+
 const SORT_OPTIONS = [
   { value: 'modifiedDesc', label: '수정일 최신순' },
   { value: 'modifiedAsc', label: '수정일 오래된순' },
   { value: 'createdDesc', label: '생성일 최신순' },
   { value: 'createdAsc', label: '생성일 오래된순' },
   { value: 'titleAsc', label: '제목 오름차순' },
-  { value: 'dueAsc', label: '기한 가까운순' }
+  { value: 'dueAsc', label: '기한 가까운순' },
+  { value: 'priorityDesc', label: '우선순위 높은순' }
 ]
 
 function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }): JSX.Element {
   return (
-    <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2">
+    <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2 border-b border-border pb-2 uppercase tracking-widest">
       {icon}
       {label}
     </h3>
@@ -51,7 +65,7 @@ function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }
 function Field({ label, children }: { label: string; children: React.ReactNode }): JSX.Element {
   return (
     <div className="space-y-1.5">
-      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
+      <label className="block text-xs font-medium text-muted-foreground">
         {label}
       </label>
       {children}
@@ -60,10 +74,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const inputCls =
-  'w-full text-xs px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400'
+  'w-full text-xs px-3 py-2 rounded-md border border-border bg-muted text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-accent'
 
 const selectCls =
-  'text-xs px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-400'
+  'text-xs px-3 py-2 rounded-md border border-border bg-muted text-foreground focus:outline-none focus:ring-1 focus:ring-accent'
 
 export function SettingsPanel(): JSX.Element {
   const { pushToast } = useViewStore()
@@ -75,6 +89,7 @@ export function SettingsPanel(): JSX.Element {
   const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle')
   const [testError, setTestError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [showMigration, setShowMigration] = useState(false)
 
   // Vault section local state
   const [vaultName, setVaultName] = useState('')
@@ -156,6 +171,16 @@ export function SettingsPanel(): JSX.Element {
     await update('statusFieldName', statusFieldName)
   }
 
+  // ── Card fields handlers ──────────────────────────────────────
+  function toggleCardField(field: CardField): void {
+    if (!settings) return
+    const current = settings.cardFields ?? ['priority', 'project', 'created']
+    const next = current.includes(field)
+      ? current.filter((f) => f !== field)
+      : [...current, field]
+    update('cardFields', next)
+  }
+
   // ── AI handlers ───────────────────────────────────────────────
   async function handleSaveKey(): Promise<void> {
     if (!apiKeyInput.trim()) return
@@ -193,14 +218,14 @@ export function SettingsPanel(): JSX.Element {
   if (!settings) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <Loader2 size={20} className="animate-spin text-slate-400" />
+        <Loader2 size={20} className="animate-spin text-muted-foreground" />
       </div>
     )
   }
 
   return (
     <div className="flex-1 overflow-auto p-6">
-      <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-6">설정</h2>
+      <h2 className="text-base font-bold text-foreground mb-6 uppercase tracking-widest">설정</h2>
 
       <div className="max-w-lg space-y-8">
         {/* ── Vault ──────────────────────────────────────────── */}
@@ -212,11 +237,11 @@ export function SettingsPanel(): JSX.Element {
                 <input
                   readOnly
                   value={settings.vaultPath || '선택되지 않음'}
-                  className={`${inputCls} flex-1 text-slate-500 cursor-default`}
+                  className={`${inputCls} flex-1 text-muted-foreground cursor-default`}
                 />
                 <button
                   onClick={handleChangeVault}
-                  className="text-xs px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 whitespace-nowrap"
+                  className="text-xs px-3 py-2 rounded-md border border-border hover:bg-muted text-muted-foreground whitespace-nowrap"
                 >
                   변경
                 </button>
@@ -238,12 +263,12 @@ export function SettingsPanel(): JSX.Element {
                 {(settings.excludedFolders ?? []).map((f) => (
                   <span
                     key={f}
-                    className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                    className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-muted text-foreground"
                   >
                     {f}
                     <button
                       onClick={() => removeExcludedFolder(f)}
-                      className="text-slate-400 hover:text-red-500"
+                      className="text-muted-foreground hover:text-destructive"
                     >
                       <XCircle size={10} />
                     </button>
@@ -260,11 +285,23 @@ export function SettingsPanel(): JSX.Element {
                 />
                 <button
                   onClick={addExcludedFolder}
-                  className="text-xs px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  className="text-xs px-3 py-2 rounded-md border border-border hover:bg-muted text-muted-foreground"
                 >
                   <Plus size={12} />
                 </button>
               </div>
+            </Field>
+
+            <Field label="표시 제외 폴더">
+              <p className="text-xs text-muted-foreground mb-2">
+                체크한 폴더의 노트는 스캔하되 칸반 보드에 표시하지 않습니다.
+              </p>
+              <FolderTreePicker
+                vaultPath={settings.vaultPath}
+                excludedScanFolders={settings.excludedFolders ?? []}
+                value={settings.displayExcludedFolders ?? []}
+                onChange={(next) => update('displayExcludedFolders', next)}
+              />
             </Field>
           </div>
         </section>
@@ -281,19 +318,19 @@ export function SettingsPanel(): JSX.Element {
                 className={inputCls}
                 placeholder="status"
               />
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 노트 frontmatter에서 읽을 필드명 (예: status, 상태)
               </p>
             </Field>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                <span className="text-xs font-medium text-muted-foreground">
                   컬럼 목록
                 </span>
                 <button
                   onClick={addColumn}
-                  className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
+                  className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-border hover:bg-muted text-muted-foreground"
                 >
                   <Plus size={10} />
                   추가
@@ -303,16 +340,16 @@ export function SettingsPanel(): JSX.Element {
                 {columns.map((col, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center gap-2 p-2 border border-slate-100 dark:border-slate-800 rounded-md"
+                    className="flex items-center gap-2 p-2 border border-border rounded-md"
                   >
                     <GripVertical
                       size={12}
-                      className="text-slate-300 dark:text-slate-600 flex-shrink-0"
+                      className="text-muted-foreground/40 flex-shrink-0"
                     />
                     <input
                       value={col.name}
                       onChange={(e) => updateColumn(idx, { name: e.target.value })}
-                      className="flex-1 text-xs px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                      className="flex-1 text-xs px-2 py-1 rounded border border-border bg-muted text-foreground focus:outline-none focus:ring-1 focus:ring-accent"
                       placeholder="컬럼명"
                     />
                     <input
@@ -323,19 +360,19 @@ export function SettingsPanel(): JSX.Element {
                         const v = e.target.value
                         updateColumn(idx, { wipLimit: v === '' ? null : Math.max(1, parseInt(v)) })
                       }}
-                      className="w-16 text-xs px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                      className="w-16 text-xs px-2 py-1 rounded border border-border bg-muted text-foreground focus:outline-none focus:ring-1 focus:ring-accent"
                       placeholder="WIP"
                     />
                     <button
                       onClick={() => removeColumn(idx)}
-                      className="text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400"
+                      className="text-muted-foreground/40 hover:text-destructive"
                     >
                       <Trash2 size={12} />
                     </button>
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-slate-400">WIP 칸이 비어있으면 제한 없음</p>
+              <p className="text-xs text-muted-foreground">WIP 칸이 비어있으면 제한 없음</p>
             </div>
           </div>
         </section>
@@ -376,7 +413,7 @@ export function SettingsPanel(): JSX.Element {
         {/* ── 기본 뷰 ─────────────────────────────────────────── */}
         <section>
           <SectionHeader icon={<LayoutGrid size={14} />} label="기본 뷰" />
-          <div className="flex gap-4">
+          <div className="flex gap-4 flex-wrap">
             <Field label="기본 그룹핑">
               <select
                 value={settings.defaultGrouping}
@@ -408,7 +445,44 @@ export function SettingsPanel(): JSX.Element {
                 ))}
               </select>
             </Field>
+            <Field label="컬럼 초기 카드 수">
+              <select
+                value={settings.columnPageSize ?? 5}
+                onChange={(e) => update('columnPageSize', Number(e.target.value))}
+                className={selectCls}
+              >
+                {[5, 10, 15, 20, 25, 30].map((n) => (
+                  <option key={n} value={n}>
+                    {n}개
+                  </option>
+                ))}
+              </select>
+            </Field>
           </div>
+        </section>
+
+        {/* ── 카드 표시 항목 ──────────────────────────────────── */}
+        <section>
+          <SectionHeader icon={<SlidersHorizontal size={14} />} label="카드 표시 항목" />
+          <div className="flex flex-wrap gap-2">
+            {CARD_FIELD_OPTIONS.map((opt) => {
+              const active = (settings.cardFields ?? []).includes(opt.value)
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => toggleCardField(opt.value)}
+                  className={
+                    active
+                      ? 'text-xs px-3 py-1.5 rounded-full border border-accent bg-accent text-accent-foreground font-medium'
+                      : 'text-xs px-3 py-1.5 rounded-full border border-border text-muted-foreground hover:bg-muted'
+                  }
+                >
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">선택된 항목만 칸반 카드에 표시됩니다.</p>
         </section>
 
         {/* ── 에디터 ──────────────────────────────────────────── */}
@@ -426,9 +500,9 @@ export function SettingsPanel(): JSX.Element {
                     enabled: e.target.checked
                   })
                 }
-                className="rounded border-slate-300 dark:border-slate-600"
+                className="rounded border-border"
               />
-              <label htmlFor="auto-save" className="text-xs text-slate-700 dark:text-slate-300">
+              <label htmlFor="auto-save" className="text-xs text-foreground">
                 자동 저장 사용
               </label>
             </div>
@@ -448,7 +522,7 @@ export function SettingsPanel(): JSX.Element {
                   }}
                   className={`${inputCls} w-24`}
                 />
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   입력 중단 후 이 시간이 지나면 자동 저장됩니다.
                 </p>
               </Field>
@@ -472,7 +546,7 @@ export function SettingsPanel(): JSX.Element {
           <SectionHeader icon={<KeyRound size={14} />} label="AI 설정 (Anthropic Claude)" />
           <div className="space-y-4">
             {keyExists && (
-              <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400">
+              <div className="flex items-center gap-2 text-xs text-accent">
                 <CheckCircle size={12} />
                 API 키가 저장되어 있습니다.
               </div>
@@ -491,7 +565,7 @@ export function SettingsPanel(): JSX.Element {
                 <button
                   onClick={handleSaveKey}
                   disabled={!apiKeyInput.trim() || saving}
-                  className="text-xs px-3 py-2 rounded-md bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-700 dark:hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                  className="text-xs px-3 py-2 rounded-full bg-accent text-accent-foreground hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                 >
                   {saving ? '저장 중…' : '저장'}
                 </button>
@@ -503,20 +577,20 @@ export function SettingsPanel(): JSX.Element {
                 <button
                   onClick={handleTestKey}
                   disabled={testStatus === 'loading'}
-                  className="flex items-center gap-2 text-xs px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 disabled:opacity-40"
+                  className="flex items-center gap-2 text-xs px-3 py-2 rounded-md border border-border hover:bg-muted text-muted-foreground disabled:opacity-40"
                 >
                   {testStatus === 'loading' && <Loader2 size={12} className="animate-spin" />}
-                  {testStatus === 'ok' && <CheckCircle size={12} className="text-emerald-500" />}
-                  {testStatus === 'error' && <XCircle size={12} className="text-red-500" />}
+                  {testStatus === 'ok' && <CheckCircle size={12} className="text-accent" />}
+                  {testStatus === 'error' && <XCircle size={12} className="text-destructive" />}
                   {testStatus === 'idle' && <KeyRound size={12} />}키 테스트
                 </button>
                 {testStatus === 'ok' && (
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                  <p className="text-xs text-accent">
                     API 키가 정상적으로 작동합니다.
                   </p>
                 )}
                 {testStatus === 'error' && (
-                  <p className="text-xs text-red-600 dark:text-red-400">{testError}</p>
+                  <p className="text-xs text-destructive">{testError}</p>
                 )}
               </div>
             )}
@@ -533,17 +607,33 @@ export function SettingsPanel(): JSX.Element {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Haiku: 빠르고 저렴, 간단한 분류에 적합 / Sonnet: 더 정확, 비용 높음
               </p>
             </Field>
           </div>
         </section>
 
+        {/* ── Status 마이그레이션 ─────────────────────────────── */}
+        <section>
+          <SectionHeader icon={<Shuffle size={14} />} label="Status 마이그레이션" />
+          <p className="text-xs text-muted-foreground mb-4">
+            vault 내 status 값을 표준 값(backlog · planned · in-progress · review · done)으로 일괄 변환합니다.
+          </p>
+          <button
+            onClick={() => setShowMigration(true)}
+            className="flex items-center gap-2 text-xs px-3 py-2 rounded-md border border-border hover:bg-muted text-muted-foreground transition-colors"
+          >
+            <Shuffle size={12} />
+            마이그레이션 시작
+          </button>
+          {showMigration && <StatusMigrationWizard onClose={() => setShowMigration(false)} />}
+        </section>
+
         {/* ── 정보 ────────────────────────────────────────────── */}
         <section>
           <SectionHeader icon={<Info size={14} />} label="정보" />
-          <div className="space-y-2 text-xs text-slate-600 dark:text-slate-400">
+          <div className="space-y-2 text-xs text-muted-foreground">
             <div className="flex justify-between">
               <span>버전</span>
               <span className="font-mono">{appVersion || '0.1.0'}</span>
@@ -556,7 +646,7 @@ export function SettingsPanel(): JSX.Element {
                   e.preventDefault()
                   window.open('https://github.com/your-org/vault-kanban', '_blank')
                 }}
-                className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 underline"
+                className="text-muted-foreground hover:text-foreground underline"
               >
                 vault-kanban
               </a>

@@ -2,6 +2,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { promises as fs } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
+
+vi.mock('../../src/main/ipc/settings', () => ({
+  getSettingValue: (key: string) => (key === 'statusFieldName' ? 'status' : undefined)
+}))
+
 import {
   writeNoteToDisk,
   recentlyWrittenByApp,
@@ -17,7 +22,7 @@ function makeNote(overrides: Partial<Note> = {}): Note {
     filePath: '',
     relativePath: 't.md',
     title: '테스트 노트',
-    status: '진행중',
+    status: 'in-progress',
     tags: ['zeb'],
     created: '2026-04-01',
     body: '본문 내용',
@@ -50,7 +55,7 @@ describe('writeNoteToDisk — recentlyWrittenByApp self-write guard', () => {
 
     const written = await fs.readFile(filePath, 'utf-8')
     expect(written).toContain('title: 테스트 노트')
-    expect(written).toContain('status: 진행중')
+    expect(written).toContain('status: in-progress')
     expect(written).toContain('본문 내용')
   })
 

@@ -6,7 +6,7 @@ function makeNote(overrides: Partial<Note> & { filePath: string }): Note {
   return {
     relativePath: overrides.filePath,
     title: 'Untitled',
-    status: '백로그',
+    status: 'backlog',
     tags: [],
     body: '',
     created: '2024-01-01T00:00:00Z',
@@ -21,7 +21,7 @@ const notes: Note[] = [
   makeNote({
     filePath: '/vault/A/note1.md',
     relativePath: 'A/note1.md',
-    status: '백로그',
+    status: 'backlog',
     tags: ['alpha'],
     project: 'proj-A',
     title: 'Alpha Note',
@@ -30,7 +30,7 @@ const notes: Note[] = [
   makeNote({
     filePath: '/vault/A/note2.md',
     relativePath: 'A/note2.md',
-    status: '진행중',
+    status: 'in-progress',
     tags: ['beta'],
     project: 'proj-B',
     title: 'Beta Note',
@@ -39,7 +39,7 @@ const notes: Note[] = [
   makeNote({
     filePath: '/vault/B/note3.md',
     relativePath: 'B/note3.md',
-    status: '완료',
+    status: 'done',
     tags: ['alpha', 'gamma'],
     title: 'Gamma Note',
     mtime: new Date('2024-01-06').getTime()
@@ -47,7 +47,7 @@ const notes: Note[] = [
   makeNote({
     filePath: '/vault/B/note4.md',
     relativePath: 'B/note4.md',
-    status: '검토',
+    status: 'review',
     tags: [],
     priority: 'high',
     title: 'Delta Note',
@@ -58,10 +58,10 @@ const notes: Note[] = [
 describe('groupNotes', () => {
   it('status 그룹핑: 각 상태별로 묶임', () => {
     const groups = groupNotes(notes, 'status')
-    expect(groups.get('백로그')?.length).toBe(1)
-    expect(groups.get('진행중')?.length).toBe(1)
-    expect(groups.get('완료')?.length).toBe(1)
-    expect(groups.get('검토')?.length).toBe(1)
+    expect(groups.get('backlog')?.length).toBe(1)
+    expect(groups.get('in-progress')?.length).toBe(1)
+    expect(groups.get('done')?.length).toBe(1)
+    expect(groups.get('review')?.length).toBe(1)
   })
 
   it('tag 그룹핑: 여러 태그가 있으면 중복 포함', () => {
@@ -125,13 +125,13 @@ describe('sortNotes', () => {
 
 describe('filterNotes', () => {
   it('키워드 필터: 제목 포함 검색', () => {
-    const result = filterNotes(notes, { tags: [], folders: [], priority: 'all', keyword: 'Alpha' })
+    const result = filterNotes(notes, { tags: [], folders: [], projects: [], priority: 'all', keyword: 'Alpha' })
     expect(result).toHaveLength(1)
     expect(result[0].title).toBe('Alpha Note')
   })
 
   it('키워드 필터: 대소문자 무시', () => {
-    const result = filterNotes(notes, { tags: [], folders: [], priority: 'all', keyword: 'alpha' })
+    const result = filterNotes(notes, { tags: [], folders: [], projects: [], priority: 'all', keyword: 'alpha' })
     expect(result).toHaveLength(1)
   })
 
@@ -139,6 +139,7 @@ describe('filterNotes', () => {
     const result = filterNotes(notes, {
       tags: ['alpha', 'gamma'],
       folders: [],
+      projects: [],
       priority: 'all',
       keyword: ''
     })
@@ -146,23 +147,23 @@ describe('filterNotes', () => {
   })
 
   it('폴더 OR 필터: 지정 폴더 중 하나라도 일치하면 포함', () => {
-    const result = filterNotes(notes, { tags: [], folders: ['A'], priority: 'all', keyword: '' })
+    const result = filterNotes(notes, { tags: [], folders: ['A'], projects: [], priority: 'all', keyword: '' })
     expect(result).toHaveLength(2)
   })
 
   it('우선순위 필터: high만', () => {
-    const result = filterNotes(notes, { tags: [], folders: [], priority: 'high', keyword: '' })
+    const result = filterNotes(notes, { tags: [], folders: [], projects: [], priority: 'high', keyword: '' })
     expect(result).toHaveLength(1)
     expect(result[0].title).toBe('Delta Note')
   })
 
   it('우선순위 필터: none = 우선순위 없는 노트만', () => {
-    const result = filterNotes(notes, { tags: [], folders: [], priority: 'none', keyword: '' })
+    const result = filterNotes(notes, { tags: [], folders: [], projects: [], priority: 'none', keyword: '' })
     expect(result.every((n) => !n.priority)).toBe(true)
   })
 
   it('all 우선순위 필터: 전체 반환', () => {
-    const result = filterNotes(notes, { tags: [], folders: [], priority: 'all', keyword: '' })
+    const result = filterNotes(notes, { tags: [], folders: [], projects: [], priority: 'all', keyword: '' })
     expect(result).toHaveLength(4)
   })
 
@@ -170,6 +171,7 @@ describe('filterNotes', () => {
     const result = filterNotes(notes, {
       tags: ['alpha'],
       folders: ['A'],
+      projects: [],
       priority: 'all',
       keyword: ''
     })

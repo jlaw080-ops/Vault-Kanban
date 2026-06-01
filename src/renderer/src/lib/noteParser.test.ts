@@ -24,7 +24,7 @@ completed: null
 
     expect(note.filePath).toBe('C:/vault/01_Projects/zeb.md')
     expect(note.title).toBe('ZEB 인증 검토')
-    expect(note.status).toBe('진행중')
+    expect(note.status).toBe('in-progress')
     expect(note.priority).toBe('high')
     expect(note.due).toBe('2026-05-01')
     expect(note.tags).toEqual(['zeb', 'passive'])
@@ -42,7 +42,7 @@ completed: null
 
     const note = parseNote('C:/vault/notes/quick-idea.md', raw, MTIME)
 
-    expect(note.status).toBe('백로그')
+    expect(note.status).toBe('backlog')
     expect(note.title).toBe('quick-idea')
     expect(note.tags).toEqual([])
     expect(note.body).toBe('본문만 있는 노트.')
@@ -63,7 +63,7 @@ status: : : invalid yaml :
     expect(note.parseError).toBeDefined()
     expect(typeof note.parseError).toBe('string')
     expect(note.title).toBe('broken')
-    expect(note.status).toBe('백로그')
+    expect(note.status).toBe('backlog')
   })
 
   it('title이 없으면 파일명(확장자 제외)을 사용한다', () => {
@@ -76,7 +76,7 @@ tags: [idea]
     const note = parseNote('C:/vault/inbox/2026-04-19 회의.md', raw, MTIME)
 
     expect(note.title).toBe('2026-04-19 회의')
-    expect(note.status).toBe('예정')
+    expect(note.status).toBe('planned')
   })
 
   it('relativePath가 비어있으면 filePath의 basename을 사용한다', () => {
@@ -94,13 +94,42 @@ tags: zeb
     expect(note.tags).toEqual(['zeb'])
   })
 
-  it('알 수 없는 status는 백로그로 폴백한다', () => {
+  it('진행 중 (띄어쓰기 포함) status를 in-progress로 정규화한다', () => {
+    const raw = `---
+title: t
+status: 진행 중
+---`
+    const note = parseNote('/v/t.md', raw, MTIME)
+    expect(note.status).toBe('in-progress')
+  })
+
+  it('검토 중 (띄어쓰기 포함) status를 review로 정규화한다', () => {
+    const raw = `---
+title: t
+status: 검토 중
+---`
+    const note = parseNote('/v/t.md', raw, MTIME)
+    expect(note.status).toBe('review')
+  })
+
+  it('statusFieldName이 상태이지만 status 키가 있으면 fallback으로 status를 읽는다', () => {
+    const raw = `---
+title: t
+status: done
+---
+본문`
+    const note = parseNote('/v/t.md', raw, MTIME, '상태')
+    expect(note.status).toBe('done')
+    expect(note.statusFieldKey).toBe('status')
+  })
+
+  it('알 수 없는 status는 그대로 사용한다', () => {
     const raw = `---
 title: t
 status: 알수없음
 ---`
     const note = parseNote('/v/t.md', raw, MTIME)
-    expect(note.status).toBe('백로그')
+    expect(note.status).toBe('알수없음')
   })
 })
 
@@ -188,7 +217,7 @@ tags: [a]
 ---
 본문`
     const note = parseNote('/v/t.md', raw, MTIME)
-    const updated = { ...note, status: '진행중' as const, started: '2026-04-19T10:00:00.000Z' }
+    const updated = { ...note, status: 'in-progress' as const, started: '2026-04-19T10:00:00.000Z' }
     const out = serializeNote(updated)
 
     const tagsIdx = out.indexOf('tags:')
@@ -226,7 +255,7 @@ project: ENERGINNO
       filePath: '/v/t.md',
       relativePath: 't.md',
       title: 'no-order',
-      status: '백로그' as const,
+      status: 'backlog' as const,
       tags: ['x'],
       created: '2026-04-01',
       body: '본문',

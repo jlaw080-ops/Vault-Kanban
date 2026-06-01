@@ -1,8 +1,15 @@
 import matter from 'gray-matter'
 import type { Note, Status, Priority } from '@renderer/types'
 
-const VALID_STATUSES: readonly Status[] = ['백로그', '예정', '진행중', '검토', '완료']
 const VALID_PRIORITIES: readonly Priority[] = ['high', 'mid', 'low']
+
+const STATUS_PATTERNS: Array<[RegExp, Status]> = [
+  [/^(in.?progress|진행중?|진행\s*중)$/i, 'in-progress'],
+  [/^(done|완료됨?|finished|complete[d]?)$/i, 'done'],
+  [/^(todo|backlog|백로그|to.?do)$/i, 'backlog'],
+  [/^(planned?|예정|scheduled|upcoming)$/i, 'planned'],
+  [/^(review|검토중?|검토\s*중|in.?review|reviewing)$/i, 'review']
+]
 
 function getBasename(filePath: string): string {
   const normalized = filePath.replace(/\\/g, '/')
@@ -16,17 +23,26 @@ function stripExtension(filename: string): string {
 }
 
 function normalizeStatus(value: unknown): Status {
-  if (typeof value === 'string' && (VALID_STATUSES as readonly string[]).includes(value)) {
-    return value as Status
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const trimmed = value.trim()
+    for (const [pattern, status] of STATUS_PATTERNS) {
+      if (pattern.test(trimmed)) return status
+    }
+    return trimmed as Status
   }
-  return '백로그'
+  return 'backlog'
+}
+
+const KO_PRIORITY_MAP: Record<string, Priority> = {
+  높음: 'high',
+  중간: 'mid',
+  낮음: 'low'
 }
 
 function normalizePriority(value: unknown): Priority | undefined {
-  if (typeof value === 'string' && (VALID_PRIORITIES as readonly string[]).includes(value)) {
-    return value as Priority
-  }
-  return undefined
+  if (typeof value !== 'string') return undefined
+  if ((VALID_PRIORITIES as readonly string[]).includes(value)) return value as Priority
+  return KO_PRIORITY_MAP[value]
 }
 
 function normalizeTags(value: unknown): string[] {
@@ -55,7 +71,24 @@ function getErrorMessage(error: unknown): string {
   return String(error)
 }
 
-export function parseNote(filePath: string, raw: string, mtime: number): Note {
+const STATUS_FALLBACK_KEYS = ['status', '상태'] as const
+
+function resolveStatusField(
+  frontmatter: Record<string, unknown>,
+  statusFieldName: string
+): { key: string; value: unknown } {
+  if (frontmatter[statusFieldName] !== undefined) {
+    return { key: statusFieldName, value: frontmatter[statusFieldName] }
+  }
+  for (const fallback of STATUS_FALLBACK_KEYS) {
+    if (fallback !== statusFieldName && frontmatter[fallback] !== undefined) {
+      return { key: fallback, value: frontmatter[fallback] }
+    }
+  }
+  return { key: statusFieldName, value: undefined }
+}
+
+export function parseNote(filePath: string, raw: string, mtime: number, statusFieldName = 'status'): Note {
   const basename = getBasename(filePath)
   const titleFromFilename = stripExtension(basename)
 
@@ -71,7 +104,14 @@ export function parseNote(filePath: string, raw: string, mtime: number): Note {
     body = parsed.content.replace(/^\n+/, '').replace(/\n+$/, '')
   } catch (error: unknown) {
     parseError = getErrorMessage(error)
-    body = raw
+    // matter.stringify re-parses the body, so body must not contain frontmatter.
+    // Strip the frontmatter block by finding the closing --- delimiter.
+    if (raw.startsWith('---')) {
+      const fmClose = raw.indexOf('\n---', 3)
+      body = fmClose >= 0 ? raw.slice(fmClose + 4).replace(/^\n+/, '') : raw
+    } else {
+      body = raw
+    }
   }
 
   const title =
@@ -79,7 +119,8 @@ export function parseNote(filePath: string, raw: string, mtime: number): Note {
       ? frontmatter.title
       : titleFromFilename
 
-  const status = parseError ? '백로그' : normalizeStatus(frontmatter.status)
+  const { key: effectiveStatusKey, value: rawStatusValue } = resolveStatusField(frontmatter, statusFieldName)
+  const status = parseError ? 'backlog' : normalizeStatus(rawStatusValue)
 
   const note: Note = {
     filePath,
@@ -92,7 +133,7 @@ export function parseNote(filePath: string, raw: string, mtime: number): Note {
     mtime
   }
 
-  const priority = normalizePriority(frontmatter.priority)
+  const priority = normalizePriority(frontmatter.priority) ?? normalizePriority(frontmatter['우선순위'])
   if (priority) note.priority = priority
 
   const due = normalizeDateField(frontmatter.due)
@@ -110,6 +151,7 @@ export function parseNote(filePath: string, raw: string, mtime: number): Note {
 
   if (parseError) note.parseError = parseError
   if (originalKeyOrder.length > 0) note.originalKeyOrder = originalKeyOrder
+  note.statusFieldKey = effectiveStatusKey
 
   return note
 }
@@ -126,10 +168,11 @@ const KNOWN_KEYS = [
   'completed'
 ] as const
 
-function buildFrontmatterMap(note: Note): Record<string, unknown> {
+function buildFrontmatterMap(note: Note, statusFieldName: string): Record<string, unknown> {
+  const effectiveKey = note.statusFieldKey ?? statusFieldName
   const data: Record<string, unknown> = {}
   data.title = note.title
-  data.status = note.status
+  data[effectiveKey] = note.status
   if (note.priority !== undefined) data.priority = note.priority
   if (note.due !== undefined) data.due = note.due
   data.tags = note.tags
@@ -142,8 +185,8 @@ function buildFrontmatterMap(note: Note): Record<string, unknown> {
 
 const DEFAULT_KEY_ORDER: readonly string[] = ['title', 'status', 'tags', 'created']
 
-export function serializeNote(note: Note): string {
-  const fullData = buildFrontmatterMap(note)
+export function serializeNote(note: Note, statusFieldName = 'status'): string {
+  const fullData = buildFrontmatterMap(note, statusFieldName)
   const ordered: Record<string, unknown> = {}
   const seen = new Set<string>()
 
@@ -173,5 +216,11 @@ export function serializeNote(note: Note): string {
     }
   }
 
-  return matter.stringify(note.body, ordered)
+  // Pass a file-object (not a string) so gray-matter skips re-parsing the body.
+  // matter.stringify(string, data) internally calls matter(string) which would try
+  // to interpret any "---" horizontal rules in the body as YAML front-matter delimiters.
+  return matter.stringify(
+    { content: note.body ?? '', data: {} } as unknown as matter.GrayMatterFile<string>,
+    ordered
+  )
 }
