@@ -83,6 +83,7 @@ export function FolderTreePicker({
 
   useEffect(() => {
     if (!vaultPath) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 비동기 로드 시작 시 로딩 표시(정당한 패턴)
     setLoading(true)
     window.api.vault
       .listFolders(vaultPath, excludedScanFolders)

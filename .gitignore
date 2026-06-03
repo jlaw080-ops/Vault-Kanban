@@ -9,6 +9,7 @@ out/
 .DS_Store
 *.log
 npm-debug.log*
+.eslintcache
 
 # Electron-builder
 release/
