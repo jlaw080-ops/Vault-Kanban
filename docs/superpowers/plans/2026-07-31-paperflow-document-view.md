@@ -188,23 +188,39 @@ git commit -m "chore(doc-view): 문서 뷰 렌더링 의존성 추가 + ADR-024
 **Files:**
 - Create: `src/renderer/src/lib/docRender/remarkObsidian.ts`
 - Create: `src/renderer/src/lib/docRender/remarkObsidian.test.ts`
+- Modify: `src/renderer/src/types/index.ts`
 
 **Interfaces:**
 - Consumes: `unist-util-visit`, `unified`+`remark-parse`(테스트)
 - Produces:
   ```ts
+  // types/index.ts — 타입 정본은 반드시 여기에만 둔다 (Global Constraint / ADR-019)
   export type AssetResolver = (notePath: string, target: string) => string
+
+  // remarkObsidian.ts
   export interface RemarkObsidianOptions {
     notePath: string
     resolveAsset: AssetResolver
   }
   export function remarkObsidian(options: RemarkObsidianOptions): (tree: Root) => void
   ```
-  Task 3이 이 파일에 콜아웃·pagebreak 처리를 **추가**한다. Task 9가 `remarkPlugins`에 **튜플 형태**로 등록한다: `[remarkObsidian, { notePath, resolveAsset }]`
+  Task 3이 이 파일에 콜아웃·pagebreak 처리를 **추가**한다. Task 4가 `localResolver`로 이 타입을 구현한다. Task 9가 `remarkPlugins`에 **튜플 형태**로 등록한다: `[remarkObsidian, { notePath, resolveAsset }]`
 
 > **중요 — unified 플러그인 등록 형태:** `remarkObsidian`은 *옵션을 받아 transformer를 반환하는* 함수다. `remarkPlugins={[remarkObsidian({...})]}` 처럼 직접 호출한 결과를 넣으면 unified가 그것을 다시 attacher로 취급해 transformer를 얻지 못하고 **아무 변환도 일어나지 않는다.** 반드시 튜플 `[remarkObsidian, options]` 형태로 등록한다. 기존 `NoteEditor.tsx`의 `rehypePlugins: [[rehypeWikilinks]]` 와 같은 방식이다.
 
-- [ ] **Step 1: 실패하는 테스트를 작성한다**
+- [ ] **Step 1: `AssetResolver` 타입을 정본 위치에 추가한다**
+
+`src/renderer/src/types/index.ts` **맨 끝에** 추가한다. 타입은 이 파일에만 정의한다는 것이 프로젝트 규칙(ADR-019)이므로, `remarkObsidian.ts` 안에 따로 정의하지 않는다.
+
+```ts
+/**
+ * 문서 뷰에서 이미지 target 을 실제 src 로 바꾸는 함수.
+ * 로컬 뷰는 vault-img:// 를, 나중 웹 공유는 https URL 을 돌려주도록 갈아끼운다.
+ */
+export type AssetResolver = (notePath: string, target: string) => string
+```
+
+- [ ] **Step 2: 실패하는 테스트를 작성한다**
 
 `src/renderer/src/lib/docRender/remarkObsidian.test.ts`:
 
@@ -213,7 +229,8 @@ import { describe, it, expect } from 'vitest'
 import { unified } from 'unified'
 import remarkParse from 'remark-parse'
 import type { Root } from 'mdast'
-import { remarkObsidian, type AssetResolver } from './remarkObsidian'
+import type { AssetResolver } from '@renderer/types'
+import { remarkObsidian } from './remarkObsidian'
 
 const stubResolver: AssetResolver = (notePath, target) => `test://${notePath}::${target}`
 
@@ -306,22 +323,21 @@ describe('remarkObsidian — 코드 안에서는 변환하지 않는다 (회귀 
 })
 ```
 
-- [ ] **Step 2: 테스트를 실행해 실패를 확인한다**
+- [ ] **Step 3: 테스트를 실행해 실패를 확인한다**
 
 ```bash
 npx vitest run src/renderer/src/lib/docRender/remarkObsidian.test.ts
 ```
 Expected: FAIL — `Failed to resolve import "./remarkObsidian"` (파일이 아직 없음)
 
-- [ ] **Step 3: 최소 구현을 작성한다**
+- [ ] **Step 4: 최소 구현을 작성한다**
 
 `src/renderer/src/lib/docRender/remarkObsidian.ts`:
 
 ```ts
 import { visit, SKIP } from 'unist-util-visit'
 import type { Root, Text, PhrasingContent, Parent } from 'mdast'
-
-export type AssetResolver = (notePath: string, target: string) => string
+import type { AssetResolver } from '@renderer/types'
 
 export interface RemarkObsidianOptions {
   /** 볼트 루트 기준 노트 상대경로 (이미지 상대경로 해석의 기준점) */
@@ -418,24 +434,24 @@ export function remarkObsidian(options: RemarkObsidianOptions) {
 }
 ```
 
-- [ ] **Step 4: 테스트를 실행해 통과를 확인한다**
+- [ ] **Step 5: 테스트를 실행해 통과를 확인한다**
 
 ```bash
 npx vitest run src/renderer/src/lib/docRender/remarkObsidian.test.ts
 ```
 Expected: PASS — 12개 테스트 전부 통과
 
-- [ ] **Step 5: 타입 체크**
+- [ ] **Step 6: 타입 체크**
 
 ```bash
 npm run typecheck
 ```
 Expected: 오류 없음
 
-- [ ] **Step 6: 커밋**
+- [ ] **Step 7: 커밋**
 
 ```bash
-git add src/renderer/src/lib/docRender/remarkObsidian.ts src/renderer/src/lib/docRender/remarkObsidian.test.ts
+git add src/renderer/src/types/index.ts src/renderer/src/lib/docRender/remarkObsidian.ts src/renderer/src/lib/docRender/remarkObsidian.test.ts
 git commit -m "feat(doc-view): Obsidian 이미지 임베드·위키링크 mdast 전처리
 
 - ![[img.png]] -> image 노드 (리졸버 주입으로 url 결정)
@@ -669,11 +685,10 @@ git commit -m "feat(doc-view): Obsidian 콜아웃 + 강제 페이지 나눔 전�
 - Modify: `src/renderer/src/types/index.ts`
 
 **Interfaces:**
-- Consumes: `Note` (from `@renderer/types`)
+- Consumes: `Note`, `AssetResolver` (둘 다 `@renderer/types` — `AssetResolver`는 **Task 2에서 이미 추가됨. 다시 정의하지 말 것**)
 - Produces:
   ```ts
-  // types/index.ts
-  export type AssetResolver = (notePath: string, target: string) => string
+  // types/index.ts — RenderableDocument 만 새로 추가한다
   export interface RenderableDocument {
     title: string
     markdown: string
@@ -797,17 +812,11 @@ npx vitest run src/renderer/src/lib/docRender/resolveAsset.test.ts src/renderer/
 ```
 Expected: FAIL — 두 모듈 모두 import 해결 실패
 
-- [ ] **Step 4: 타입을 추가한다**
+- [ ] **Step 4: `RenderableDocument` 타입을 추가한다**
 
-`src/renderer/src/types/index.ts` **맨 끝에** 추가:
+`src/renderer/src/types/index.ts` **맨 끝에** 추가한다. `AssetResolver`는 Task 2에서 이미 이 파일에 추가되어 있으므로 **다시 정의하지 않는다.**
 
 ```ts
-/**
- * 문서 뷰에서 이미지 target 을 실제 src 로 바꾸는 함수.
- * 로컬 뷰는 vault-img:// 를, 나중 웹 공유는 https URL 을 돌려주도록 갈아끼운다.
- */
-export type AssetResolver = (notePath: string, target: string) => string
-
 /** 문서 뷰가 렌더할 단위. 웹 공유 시에도 같은 형태를 그대로 올린다. */
 export interface RenderableDocument {
   title: string
@@ -2310,7 +2319,7 @@ git commit -m "feat(doc-view): 전체화면 문서 뷰 모달 + 편집기 진입
 
 ### 3. 타입 일관성 점검
 
-- `AssetResolver` — Task 2에서 `remarkObsidian.ts`가 자체 export하고, Task 4에서 `types/index.ts`로 정본을 옮긴다. **두 곳에 같은 이름이 생긴다.** Task 4 Step 4를 수행할 때 `remarkObsidian.ts`의 `export type AssetResolver = …` 를 `import type { AssetResolver } from '@renderer/types'` + `export type { AssetResolver }` 로 바꿔 정본을 하나로 유지할 것. (Task 2 시점엔 `types/index.ts`가 아직 없으므로 자체 정의로 시작하는 것이 맞다.)
+- `AssetResolver` — Task 2 Step 1에서 `types/index.ts`에 **한 번만** 정의한다. Task 4는 이를 import해 쓸 뿐 다시 정의하지 않는다. (초안에서는 Task 2가 `remarkObsidian.ts`에 자체 정의하고 Task 4가 옮기는 구조였으나, 이는 Global Constraint "타입은 `types/index.ts`에만 정의"(ADR-019)와 충돌하므로 사전 스캔에서 바로잡았다.)
 - `remarkObsidian(options)` 시그니처 — Task 2 정의, Task 3 확장, Task 9 사용. 튜플 등록 형태가 세 곳 모두 일치.
 - `onSettled`(Mermaid) ↔ `onMermaidSettled`(MarkdownDocument·DocumentView) — 이름이 다르지만 경계마다 의도적으로 다른 이름이며, Task 8·9·10에서 전달 관계가 명시돼 있다.
 - `resolveVaultAsset(vaultPath, notePath, target)` — Task 5 정의, Task 6 호출. 인자 순서 일치.
