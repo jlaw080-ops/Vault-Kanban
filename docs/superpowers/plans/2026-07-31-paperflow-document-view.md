@@ -561,7 +561,7 @@ describe('remarkObsidian — 콜아웃', () => {
 describe('remarkObsidian — 강제 페이지 나눔', () => {
   it('<!-- pagebreak --> 주석을 page-break div 로 바꾼다', () => {
     const tree = transform('앞 문단\n\n<!-- pagebreak -->\n\n뒤 문단')
-    const breaks = (tree.children as Record<string, unknown>[]).filter((n) => {
+    const breaks = (tree.children as unknown as Record<string, unknown>[]).filter((n) => {
       const data = n.data as { hName?: string } | undefined
       return data?.hName === 'div'
     })
@@ -572,7 +572,7 @@ describe('remarkObsidian — 강제 페이지 나눔', () => {
 
   it('공백이 들어간 형태도 인식한다', () => {
     const tree = transform('<!--   pagebreak   -->')
-    const breaks = (tree.children as Record<string, unknown>[]).filter((n) => {
+    const breaks = (tree.children as unknown as Record<string, unknown>[]).filter((n) => {
       const data = n.data as { hName?: string } | undefined
       return data?.hName === 'div'
     })

@@ -1,5 +1,5 @@
 import { visit, SKIP } from 'unist-util-visit'
-import type { Root, Text, PhrasingContent, Parent } from 'mdast'
+import type { Root, Text, PhrasingContent, Parent, Blockquote, Html } from 'mdast'
 import type { AssetResolver } from '@renderer/types'
 
 export interface RemarkObsidianOptions {
@@ -79,6 +79,47 @@ function splitWikiSyntax(value: string, options: RemarkObsidianOptions): Phrasin
   return out
 }
 
+/** `[!type]` + 선택적 접기 마커(-/+) + 같은 줄의 제목 */
+const CALLOUT_RE = /^\[!([^\]]+)\][-+]?[ \t]*([^\n]*)/
+
+/** `<!-- pagebreak -->` (앞뒤 공백 허용, 대소문자 무시) */
+const PAGEBREAK_RE = /^<!--\s*pagebreak\s*-->$/i
+
+function applyCallout(node: Blockquote): void {
+  const firstBlock = node.children[0]
+  if (!firstBlock || firstBlock.type !== 'paragraph') return
+
+  const firstInline = firstBlock.children[0]
+  if (!firstInline || firstInline.type !== 'text') return
+
+  const match = CALLOUT_RE.exec(firstInline.value)
+  if (!match) return
+
+  const type = match[1].trim().toLowerCase()
+  const title = match[2].trim()
+  const rest = firstInline.value.slice(match[0].length)
+
+  const replacement: PhrasingContent[] = []
+  if (title) replacement.push({ type: 'strong', children: [{ type: 'text', value: title }] })
+  if (rest) replacement.push({ type: 'text', value: rest })
+
+  firstBlock.children.splice(0, 1, ...replacement)
+
+  node.data = {
+    ...node.data,
+    hProperties: { ...(node.data?.hProperties ?? {}), 'data-callout': type }
+  }
+}
+
+function applyPagebreak(node: Html): void {
+  if (!PAGEBREAK_RE.test(node.value.trim())) return
+  node.data = {
+    ...node.data,
+    hName: 'div',
+    hProperties: { ...(node.data?.hProperties ?? {}), className: ['page-break'] }
+  }
+}
+
 export function remarkObsidian(options: RemarkObsidianOptions) {
   return (tree: Root): void => {
     // 'text' 노드만 방문하므로 code / inlineCode 노드는 자동으로 제외된다.
@@ -89,6 +130,14 @@ export function remarkObsidian(options: RemarkObsidianOptions) {
       ;(parent as Parent).children.splice(index, 1, ...replacement)
       // 새로 넣은 노드를 다시 방문하지 않도록 커서를 건너뛴다.
       return [SKIP, index + replacement.length]
+    })
+
+    visit(tree, 'blockquote', (node: Blockquote) => {
+      applyCallout(node)
+    })
+
+    visit(tree, 'html', (node: Html) => {
+      applyPagebreak(node)
     })
   }
 }
