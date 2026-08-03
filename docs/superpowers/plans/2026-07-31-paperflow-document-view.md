@@ -455,7 +455,7 @@ export function remarkObsidian(options: RemarkObsidianOptions) {
 ```bash
 npx vitest run src/renderer/src/lib/docRender/remarkObsidian.test.ts
 ```
-Expected: PASS — 12개 테스트 전부 통과
+Expected: PASS — 10개 테스트 전부 통과
 
 - [ ] **Step 6: 타입 체크**
 
@@ -592,7 +592,7 @@ describe('remarkObsidian — 강제 페이지 나눔', () => {
 ```bash
 npx vitest run src/renderer/src/lib/docRender/remarkObsidian.test.ts
 ```
-Expected: 콜아웃·페이지나눔 10개 테스트 FAIL, 기존 12개는 PASS
+Expected: 콜아웃·페이지나눔 10개 테스트 FAIL, 기존 10개는 PASS
 
 - [ ] **Step 3: 구현을 추가한다**
 
@@ -667,7 +667,7 @@ function applyPagebreak(node: Html): void {
 ```bash
 npx vitest run src/renderer/src/lib/docRender/remarkObsidian.test.ts
 ```
-Expected: PASS — 22개 전부 통과
+Expected: PASS — 20개 전부 통과
 
 - [ ] **Step 5: 타입 체크**
 
@@ -911,7 +911,7 @@ export function noteToDocument(note: Note): RenderableDocument {
 ```bash
 npx vitest run src/renderer/src/lib/docRender/
 ```
-Expected: PASS — resolveAsset 5개 + noteToDocument 8개 + remarkObsidian 22개
+Expected: PASS — resolveAsset 5개 + noteToDocument 8개 + remarkObsidian 20개
 
 - [ ] **Step 8: 타입 체크**
 

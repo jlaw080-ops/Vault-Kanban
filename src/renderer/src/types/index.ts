@@ -45,3 +45,9 @@ export interface Settings {
   columnPageSize: number
   cardFields: CardField[]
 }
+
+/**
+ * 문서 뷰에서 이미지 target 을 실제 src 로 바꾸는 함수.
+ * 로컬 뷰는 vault-img:// 를, 나중 웹 공유는 https URL 을 돌려주도록 갈아끼운다.
+ */
+export type AssetResolver = (notePath: string, target: string) => string
