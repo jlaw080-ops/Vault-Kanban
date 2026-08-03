@@ -291,3 +291,33 @@
 - **트레이드오프**: 토스트 기능이 향후 복잡해지면(undo 액션·스택 관리·promise 통합) 자체 구현을 유지보수하는 비용이 증가. 그 시점에 `sonner` 도입 ADR로 대체.
 - **검토했으나 포기**: `sonner`(폴리싱은 좋으나 우리 요건에 과잉), `@radix-ui/react-toast`(Radix Dialog와 별도 패키지 추가 필요·API 표면이 더 큼).
 - **재평가 트리거**: (1) Promise 기반 토스트 필요, (2) 스택 5개 이상 관리, (3) Undo 액션 토스트 필요.
+
+---
+
+## ADR-024: 문서 뷰 렌더링은 react-markdown 계열 채택 (PaperFlow와 동일 구성)
+
+- **결정**: 문서 뷰(A4 인쇄용 보기)의 마크다운 렌더링에 다음을 도입한다. 버전은 PaperFlow(`jlaw080-ops/paperflow`) 저장소와 동일하게 고정한다.
+
+  | 패키지 | 버전 | 용도 |
+  |---|---|---|
+  | `react-markdown` | ^10.1.0 | 마크다운 → React 엘리먼트 |
+  | `remark-gfm` | ^4.0.1 | GFM 표·취소선·자동링크 |
+  | `remark-breaks` | ^4.0.0 | 단일 줄바꿈 → `<br>` |
+  | `mermaid` | ^11.15.0 | 다이어그램 (동적 import) |
+  | `unist-util-visit` | ^5.1.0 | mdast 순회 (기존 미선언분 정리 겸) |
+  | `unified` (dev) | ^11.0.5 | 테스트에서 마크다운 파싱 |
+  | `remark-parse` (dev) | ^11.0.0 | 테스트에서 마크다운 파싱 |
+
+- **이유**:
+  - 버전을 PaperFlow와 동일하게 고정했다. 나중에 같은 노트를 웹으로 공유했을 때 로컬 문서 뷰와 웹 결과가 어긋나면 인쇄물 검증이 무의미해진다.
+  - 볼트 실측(1,714개 노트)에서 GFM 표 838개(49%), mermaid 36개(2%)가 실사용 중이다. 표는 인쇄 시 페이지 경계 잘림 방지가 핵심 가치이므로 `remark-gfm`이 필수다.
+  - `remark-breaks`는 Obsidian·GitHub 댓글과 동일한 줄바꿈 동작이라 원본 노트의 줄나눔을 보존한다. PaperFlow도 같은 이유로 채택했다.
+  - `unist-util-visit`은 이미 `rehypeWikilinks.ts`가 import하고 있으나 `package.json`에 미선언 상태였다(`@uiw/react-md-editor`를 통한 전이 설치 의존). 그 패키지가 의존성 트리를 바꾸면 기존 편집기 미리보기까지 빌드가 깨지므로, 같은 패키지를 쓰는 이번에 직접 의존성으로 명시해 잠재 결함을 제거한다.
+- **트레이드오프**:
+  - `mermaid`는 번들이 크다(수백 KB). 문서에 mermaid 블록이 있을 때만 동적 `import()`로 로드해 초기 로딩에 영향을 주지 않는다.
+  - 마크다운 파이프라인이 편집기용·문서용 둘로 늘어난다. 의도적 분리이며, 각각의 목적이 달라 수렴시킬 이유가 없다.
+- **검토했으나 포기**:
+  - `@uiw/react-md-editor`의 내장 미리보기 재사용 — 편집기 미리보기와 인쇄용 문서 뷰는 플러그인 구성 요구가 다르다. 체인을 공유하면 한쪽 변경이 다른 쪽을 깨뜨린다.
+  - `marked` + `DOMPurify`로 직접 HTML 생성 — React 트리를 거치지 않으면 mermaid 컴포넌트 삽입과 콜아웃 스타일링이 문자열 조작이 된다.
+  - PaperFlow 웹앱을 webview로 임베드 — 오프라인 불가, 로그인 필요, 볼트 노트와 자동 연동 안 됨. (`docs/superpowers/specs/2026-07-31-paperflow-document-view-design.md` 참조)
+- **설치 제약**: 이 의존성들은 `npx -y npm@10.8.2 install …` 로 설치했다. 로컬 npm 11로 설치하면 `package-lock.json`이 npm 11 형식으로 재생성되어 CI(Node 22 = npm 10)의 `npm ci`가 깨진다.
