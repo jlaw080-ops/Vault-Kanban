@@ -25,6 +25,7 @@
 - **zustand 스토어는 `vaultStore`/`viewStore`/`settingsStore` 3개 고정.** 신규 스토어 금지. (ADR-020)
 - **본문(마크다운 body)을 앱이 임의 수정 금지.** 이 기능은 전 구간 **읽기 전용**이다.
 - **커밋 메시지:** Conventional Commits, 한국어 본문. 예: `feat(doc-view): ...`. **attribution 라인(`Co-Authored-By` 등)을 넣지 않는다** — 이 저장소는 attribution이 비활성화되어 있다 (기존 커밋 이력과 일치시킬 것).
+- **의존성 설치는 반드시 `npx -y npm@10.8.2 install …` 로 한다.** 로컬 npm(11.x)으로 설치하면 `package-lock.json`이 npm 11 형식으로 재생성되어 CI(Node 22 = npm 10)의 `npm ci`가 EUSAGE/EBADPLATFORM으로 깨진다. 검증도 `npx -y npm@10.8.2 ci` 로 한다.
 - **테스트 실행:** `npm test` (= `vitest run`). 단일 파일: `npx vitest run <경로>`
 - **타입 체크:** `npm run typecheck` (node + web 양쪽)
 - **경로 별칭:** 렌더러 코드는 `@renderer` → `src/renderer/src`
@@ -97,15 +98,17 @@ Expected: 기존 테스트가 전부 통과. 이 기준선을 Step 5에서 다�
 - [ ] **Step 2: 런타임 의존성 설치**
 
 ```bash
-npm install --save react-markdown@^10.1.0 remark-gfm@^4.0.1 remark-breaks@^4.0.0 mermaid@^11.15.0 unist-util-visit@^5.1.0
+npx -y npm@10.8.2 install --save react-markdown@^10.1.0 remark-gfm@^4.0.1 remark-breaks@^4.0.0 mermaid@^11.15.0 unist-util-visit@^5.1.0
 ```
 
 버전은 PaperFlow(`jlaw080-ops/paperflow`)의 `package.json`과 동일하게 맞춘다. 렌더 결과가 웹 공유 시에도 일치해야 하기 때문이다. `unist-util-visit`은 이미 설치된 버전(5.1.0)에 고정한다.
 
+> **`npx -y npm@10.8.2` 를 쓰는 이유 (로컬 `npm` 직접 호출 금지):** 이 저장소의 `package-lock.json`은 CI(Node 22 = npm 10)에 맞춰 npm **10.8.2**로 재생성된 것이다. 로컬 npm 11로 설치하면 락파일이 npm 11 형식으로 재생성되고, CI의 `npm ci`가 EUSAGE/EBADPLATFORM으로 실패한다. 2026-06-01 세션에서 이미 한 번 고친 회귀이므로 반복하지 않는다.
+
 - [ ] **Step 3: 테스트용 devDependency 설치**
 
 ```bash
-npm install --save-dev unified@^11.0.5 remark-parse@^11.0.0
+npx -y npm@10.8.2 install --save-dev unified@^11.0.5 remark-parse@^11.0.0
 ```
 
 `remarkObsidian` 테스트에서 실제 마크다운을 mdast로 파싱하기 위해 필요하다. 손으로 만든 트리로 테스트하면 "코드블록 안의 `[[...]]`는 변환되지 않는다" 같은 회귀 테스트가 무의미해진다(코드블록 노드를 손으로 안 만들면 통과가 보장되므로).
@@ -167,6 +170,19 @@ npm test
 npm run typecheck
 ```
 Expected: 둘 다 통과. 의존성 추가만으로 기존 동작이 깨지지 않아야 한다.
+
+- [ ] **Step 5b: 락파일이 CI에서도 통하는지 검증한다**
+
+```bash
+npx -y npm@10.8.2 ci
+```
+Expected: 성공. 이것이 CI(`.github/workflows`, Node 22 = npm 10)가 실제로 실행하는 명령이다.
+로컬 npm 11의 `npm ci` 는 락파일 불일치에 관대해서 검증 도구로 쓸 수 없으므로 **반드시
+`npx -y npm@10.8.2 ci` 로 확인한다.** 여기서 EUSAGE/EBADPLATFORM 이 나면 Step 2·3을
+`npx -y npm@10.8.2` 로 다시 수행한 것이 맞는지 확인할 것.
+
+이 명령은 `node_modules` 를 지우고 재설치하므로 몇 분 걸린다. 완료 후 Step 1의 `npm test`
+기준선을 한 번 더 확인한다.
 
 - [ ] **Step 6: 커밋**
 
