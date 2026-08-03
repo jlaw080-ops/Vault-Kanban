@@ -51,3 +51,12 @@ export interface Settings {
  * 로컬 뷰는 vault-img:// 를, 나중 웹 공유는 https URL 을 돌려주도록 갈아끼운다.
  */
 export type AssetResolver = (notePath: string, target: string) => string
+
+/** 문서 뷰가 렌더할 단위. 웹 공유 시에도 같은 형태를 그대로 올린다. */
+export interface RenderableDocument {
+  title: string
+  /** 본문 마크다운 (frontmatter 제외) */
+  markdown: string
+  /** 본문이 참조하는 로컬 이미지 target 목록 (중복 제거, 원격 URL 제외) */
+  assets: string[]
+}
