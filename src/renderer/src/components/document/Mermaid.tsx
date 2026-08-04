@@ -47,7 +47,9 @@ export function Mermaid({ chart, onSettled }: MermaidProps): JSX.Element {
         if (cancelled) return
         setSvg(rendered)
         setFailed(false)
-      } catch {
+      } catch (error) {
+        // 조용히 삼키면 왜 다이어그램이 안 그려지는지 추적할 수 없다.
+        console.error('[Mermaid] 렌더 실패:', error, '\n--- 원본 ---\n', chart)
         if (cancelled) return
         setFailed(true)
       } finally {

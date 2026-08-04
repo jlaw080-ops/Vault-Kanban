@@ -39,6 +39,21 @@ describe('Mermaid', () => {
     })
   })
 
+  it('렌더에 실패하면 이유를 콘솔에 남긴다 (조용히 삼키지 않는다)', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const cause = new Error('Parse error on line 2')
+    renderMock.mockRejectedValue(cause)
+
+    render(<Mermaid chart="graph TD;깨진문법" />)
+
+    await waitFor(() => {
+      expect(spy).toHaveBeenCalled()
+    })
+    // 원인 객체가 그대로 실려야 스택을 볼 수 있다.
+    expect(spy.mock.calls[0]).toContain(cause)
+    spy.mockRestore()
+  })
+
   it('성공하면 onSettled 를 한 번 호출한다', async () => {
     renderMock.mockResolvedValue({ svg: '<svg></svg>' })
     const onSettled = vi.fn()
