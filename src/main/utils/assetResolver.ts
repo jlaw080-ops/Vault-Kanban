@@ -98,6 +98,11 @@ export async function resolveVaultAsset(
   }
 
   // ① 노트 기준 상대경로
+  //
+  // 여기서는 일부러 확장자를 제한하지 않는다(2026-08-04 결정). Obsidian 은
+  // `![[file.pdf]]` 처럼 이미지가 아닌 임베드도 지원하므로 나중에 붙일 여지를 남긴다.
+  // 볼트 경계는 아래 isInsideVault 로 지키므로 볼트 밖 파일은 어차피 나가지 않는다.
+  // 이미지로 좁히려면 여기가 아니라 호출자(프로토콜 핸들러)에서 걸러야 한다.
   const noteDir = dirname(resolve(vaultPath, notePath))
   const relativeCandidate = resolve(noteDir, cleanTarget)
   if (

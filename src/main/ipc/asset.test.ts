@@ -81,6 +81,16 @@ describe('vault-img 핸들러', () => {
     expect(res.status).toBe(404)
   })
 
+  it('이미지가 아닌 볼트 파일도 돌려준다 (의도된 동작)', async () => {
+    // 2026-08-04 결정: 확장자로 좁히지 않는다. Obsidian 은 `![[file.pdf]]` 같은
+    // 비이미지 임베드를 지원하므로 나중에 붙일 여지를 남긴다. 볼트 경계는
+    // resolveVaultAsset 이 지키므로 볼트 밖 파일은 나가지 않는다.
+    // 이 테스트가 깨진다면 누군가 확장자 제한을 넣은 것이다 — 되돌리기 전에 결정을 확인할 것.
+    const res = await capturedHandler()({ url: assetUrl('folder/note.md', 'note.md') })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Content-Type')).toBe('application/octet-stream')
+  })
+
   it('쿼리 파라미터가 없으면 404 를 돌려준다', async () => {
     const res = await capturedHandler()({ url: `${VAULT_IMG_SCHEME}://asset/` })
     expect(res.status).toBe(404)
