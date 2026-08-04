@@ -63,6 +63,30 @@ describe('DocumentView', () => {
     expect(quote?.textContent).not.toContain('[!warning]')
   })
 
+  it('이미지 임베드가 vault-img URL 로 렌더된다', () => {
+    render(
+      <DocumentView note={makeNote({ body: '![[평면도.png]]' })} open onOpenChange={() => {}} />
+    )
+    const img = document.body.querySelector('.doc-body img')
+    expect(img).not.toBeNull()
+    // react-markdown 의 기본 urlTransform 은 허용 프로토콜 화이트리스트
+    // (https?|ircs?|mailto|xmpp) 밖의 URL 을 빈 문자열로 지운다.
+    // vault-img: 를 통과시키지 않으면 src 가 '' 이 되어 이미지가 안 뜬다.
+    expect(img?.getAttribute('src')).toMatch(/^vault-img:\/\/asset\/\?/)
+  })
+
+  it('위험한 프로토콜은 계속 차단한다', () => {
+    render(
+      <DocumentView
+        note={makeNote({ body: '![x](javascript:alert(1))' })}
+        open
+        onOpenChange={() => {}}
+      />
+    )
+    const img = document.body.querySelector('.doc-body img')
+    expect(img?.getAttribute('src')).toBe('')
+  })
+
   it('mermaid 가 없으면 인쇄 버튼이 즉시 활성화된다', () => {
     render(<DocumentView note={makeNote()} open onOpenChange={() => {}} />)
     expect(screen.getByRole('button', { name: /인쇄/ })).toBeEnabled()
