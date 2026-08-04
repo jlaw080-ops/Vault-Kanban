@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, protocol } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -8,6 +8,15 @@ import { registerWatcherHandlers } from './ipc/watcher'
 import { registerApiKeyHandlers } from './ipc/api-key'
 import { registerAiHandlers } from './ipc/ai'
 import { registerMigrationHandlers } from './ipc/migration'
+import { registerAssetProtocol, VAULT_IMG_SCHEME } from './ipc/asset'
+
+// app.whenReady() 이전에 호출해야 한다. ready 이후에는 무시된다.
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: VAULT_IMG_SCHEME,
+    privileges: { standard: true, secure: true, supportFetchAPI: true }
+  }
+])
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -53,6 +62,7 @@ app.whenReady().then(() => {
   registerApiKeyHandlers()
   registerAiHandlers()
   registerMigrationHandlers()
+  registerAssetProtocol()
 
   createWindow()
 
