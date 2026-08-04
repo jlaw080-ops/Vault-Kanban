@@ -1,0 +1,64 @@
+/*
+ * 인쇄 전용. 모든 규칙은 반드시 @media print 안에 둔다.
+ * (CLAUDE.md/PaperFlow 규칙: 인쇄 스타일이 화면 레이아웃을 깨뜨리지 말 것)
+ */
+@media print {
+  @page {
+    size: A4;
+    margin: 20mm;
+  }
+
+  /* 문서 뷰가 열려 있으면 앱 UI 와 모달 배경을 숨기고 지면만 인쇄한다. */
+  body.doc-view-open #root,
+  body.doc-view-open .doc-overlay,
+  body.doc-view-open .no-print {
+    display: none !important;
+  }
+
+  /* @page 여백을 쓰므로 지면 자체 여백·폭·그림자를 해제한다. */
+  body.doc-view-open .doc-sheet {
+    width: auto;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  body.doc-view-open .doc-modal {
+    position: static !important;
+    overflow: visible !important;
+    inset: auto !important;
+  }
+
+  /* 요소 보호 — 페이지 경계에서 잘리면 안 되는 것들 */
+  table,
+  pre,
+  img,
+  figure,
+  blockquote,
+  .mermaid-figure {
+    break-inside: avoid;
+  }
+
+  /* 제목이 페이지 끝에 홀로 남지 않게 한다 */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    break-after: avoid;
+  }
+
+  /* 표 머리행을 페이지마다 반복한다 */
+  thead {
+    display: table-header-group;
+  }
+
+  /* 본문의 <!-- pagebreak --> 는 강제로 새 장에서 시작한다 */
+  .page-break {
+    break-before: page;
+    border-top: 0 !important;
+    margin: 0 !important;
+  }
+}
