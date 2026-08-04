@@ -16,7 +16,8 @@ import {
   Plus,
   Eye,
   Code,
-  Columns2
+  Columns2,
+  FileText
 } from 'lucide-react'
 import { useVaultStore } from '../../stores/vaultStore'
 import { useViewStore } from '../../stores/viewStore'
@@ -24,6 +25,7 @@ import { useSettingsStore } from '../../stores/settingsStore'
 import { rehypeWikilinks } from '../../lib/rehypeWikilinks'
 import { cn } from '../../lib/utils'
 import type { Note, Status, Priority } from '@renderer/types'
+import { DocumentView } from '../document/DocumentView'
 
 type PreviewMode = 'edit' | 'live' | 'preview'
 
@@ -84,6 +86,7 @@ export function NoteEditor(): JSX.Element | null {
   const [conflict, setConflict] = useState<ConflictState | null>(null)
   const [tagInput, setTagInput] = useState('')
   const [preview, setPreview] = useState<PreviewMode>('edit')
+  const [docOpen, setDocOpen] = useState(false)
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -228,6 +231,13 @@ export function NoteEditor(): JSX.Element | null {
             ))}
           </div>
 
+          <button
+            onClick={() => setDocOpen(true)}
+            title="문서 보기 (A4 인쇄용)"
+            className="p-1.5 rounded hover:bg-muted text-muted-foreground transition-colors"
+          >
+            <FileText size={14} />
+          </button>
           <button
             onClick={() => draft && saveNote(draft)}
             disabled={!dirty || saving}
@@ -409,6 +419,8 @@ export function NoteEditor(): JSX.Element | null {
           />
         </div>
       </div>
+
+      <DocumentView note={draft} open={docOpen} onOpenChange={setDocOpen} />
     </div>
   )
 }
