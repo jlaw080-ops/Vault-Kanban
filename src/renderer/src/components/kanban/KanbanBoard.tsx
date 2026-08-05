@@ -9,14 +9,22 @@ import {
   type DragStartEvent
 } from '@dnd-kit/core'
 import { apply } from '../../lib/statusTransition'
-import { groupNotes, sortNotes, filterNotes } from '../../lib/viewModel'
+import {
+  groupNotes,
+  sortNotes,
+  filterNotes,
+  groupNotesBySwimlane,
+  parseSwimlaneDroppableId,
+  decideSwimlaneDrop,
+  ETC_LANE,
+  STATUS_COLUMNS
+} from '../../lib/viewModel'
 import { KanbanColumn } from './KanbanColumn'
 import { KanbanCard } from './KanbanCard'
+import { SwimlaneRow } from './SwimlaneRow'
 import { useViewStore } from '../../stores/viewStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import type { Note, Status, ColumnConfig } from '@renderer/types'
-
-const STATUS_COLUMNS: readonly Status[] = ['backlog', 'planned', 'in-progress', 'review', 'done']
 
 interface ColumnEntry {
   id: string
@@ -33,7 +41,8 @@ interface KanbanBoardProps {
 
 export function KanbanBoard({ notes, columns, onNoteUpdate }: KanbanBoardProps): JSX.Element {
   const [activeNote, setActiveNote] = useState<Note | null>(null)
-  const { grouping, sort, filters, pushToast } = useViewStore()
+  const { grouping, sort, filters, pushToast, swimlaneEnabled, swimlaneProjects, showEtcLane } =
+    useViewStore()
   const { settings } = useSettingsStore()
   const pageSize = settings?.columnPageSize ?? 5
 
@@ -51,6 +60,13 @@ export function KanbanBoard({ notes, columns, onNoteUpdate }: KanbanBoardProps):
   const filteredNotes = useMemo(() => filterNotes(displayNotes, filters), [displayNotes, filters])
   const sortedNotes = useMemo(() => sortNotes(filteredNotes, sort), [filteredNotes, sort])
   const grouped = useMemo(() => groupNotes(sortedNotes, grouping), [sortedNotes, grouping])
+
+  const swimlaneActive = grouping === 'status' && swimlaneEnabled && swimlaneProjects.length > 0
+
+  const lanes = useMemo(
+    () => (swimlaneActive ? groupNotesBySwimlane(sortedNotes, swimlaneProjects) : []),
+    [swimlaneActive, sortedNotes, swimlaneProjects]
+  )
 
   const columnEntries: ColumnEntry[] = useMemo(() => {
     if (grouping === 'status') {
@@ -184,6 +200,46 @@ export function KanbanBoard({ notes, columns, onNoteUpdate }: KanbanBoardProps):
     }
   }
 
+  function resolveSwimlaneTarget(id: string): { laneIndex: number; status: Status } | null {
+    const parsed = parseSwimlaneDroppableId(id)
+    if (
+      parsed &&
+      parsed.laneIndex < lanes.length &&
+      (STATUS_COLUMNS as readonly string[]).includes(parsed.status)
+    ) {
+      return { laneIndex: parsed.laneIndex, status: parsed.status as Status }
+    }
+    // 카드 위에 드롭: 카드가 속한 레인·컬럼으로 해석
+    for (let i = 0; i < lanes.length; i++) {
+      const hit = lanes[i].notes.find((n) => n.filePath === id)
+      if (hit) return { laneIndex: i, status: hit.status }
+    }
+    return null
+  }
+
+  async function handleSwimlaneDrop(
+    draggedNote: Note,
+    target: { laneIndex: number; status: Status }
+  ): Promise<void> {
+    const decision = decideSwimlaneDrop(draggedNote, lanes[target.laneIndex].lane, target.status)
+    if (!decision) return
+
+    let updated: Note = draggedNote
+    if (decision.statusChanged) updated = apply(updated, decision.nextStatus, new Date())
+    if (decision.projectChanged) updated = { ...updated, project: decision.nextProject }
+
+    onNoteUpdate(updated)
+    try {
+      await window.api.vault.writeNote(updated)
+    } catch (error) {
+      pushToast(
+        `파일 저장 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`,
+        'error'
+      )
+      onNoteUpdate(draggedNote)
+    }
+  }
+
   async function handleDragEnd(event: DragEndEvent): Promise<void> {
     setActiveNote(null)
     const { active, over } = event
@@ -191,6 +247,12 @@ export function KanbanBoard({ notes, columns, onNoteUpdate }: KanbanBoardProps):
 
     const draggedNote = findNoteById(String(active.id))
     if (!draggedNote) return
+
+    if (swimlaneActive) {
+      const target = resolveSwimlaneTarget(String(over.id))
+      if (target) await handleSwimlaneDrop(draggedNote, target)
+      return
+    }
 
     const targetColId = resolveTargetColumn(String(over.id))
     if (!targetColId) return
@@ -203,18 +265,35 @@ export function KanbanBoard({ notes, columns, onNoteUpdate }: KanbanBoardProps):
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex gap-3 h-full overflow-x-auto pb-2">
-        {columnEntries.map((col) => (
-          <KanbanColumn
-            key={col.id}
-            columnId={col.id}
-            label={col.label}
-            notes={col.notes}
-            column={col.config}
-            pageSize={pageSize}
-          />
-        ))}
-      </div>
+      {swimlaneActive ? (
+        <div className="flex flex-col gap-4 h-full overflow-y-auto pb-2">
+          {lanes.map((laneGroup, i) => {
+            if (laneGroup.lane === ETC_LANE && !showEtcLane) return null
+            return (
+              <SwimlaneRow
+                key={laneGroup.lane}
+                laneIndex={i}
+                lane={laneGroup.lane}
+                notes={laneGroup.notes}
+                pageSize={pageSize}
+              />
+            )
+          })}
+        </div>
+      ) : (
+        <div className="flex gap-3 h-full overflow-x-auto pb-2">
+          {columnEntries.map((col) => (
+            <KanbanColumn
+              key={col.id}
+              columnId={col.id}
+              label={col.label}
+              notes={col.notes}
+              column={col.config}
+              pageSize={pageSize}
+            />
+          ))}
+        </div>
+      )}
       <DragOverlay>{activeNote && <KanbanCard note={activeNote} isDragOverlay />}</DragOverlay>
     </DndContext>
   )
