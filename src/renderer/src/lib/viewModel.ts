@@ -132,6 +132,23 @@ export interface SwimlaneGroup {
   notes: Note[]
 }
 
+const SWIMLANE_ID_SEP = '::'
+
+export function makeSwimlaneDroppableId(laneIndex: number, status: string): string {
+  return `${laneIndex}${SWIMLANE_ID_SEP}${status}`
+}
+
+export function parseSwimlaneDroppableId(
+  id: string
+): { laneIndex: number; status: string } | null {
+  const sepAt = id.indexOf(SWIMLANE_ID_SEP)
+  if (sepAt <= 0) return null
+  const lanePart = id.slice(0, sepAt)
+  const status = id.slice(sepAt + SWIMLANE_ID_SEP.length)
+  if (!/^\d+$/.test(lanePart) || status.length === 0) return null
+  return { laneIndex: Number(lanePart), status }
+}
+
 export function groupNotesBySwimlane(
   notes: Note[],
   selectedProjects: string[]

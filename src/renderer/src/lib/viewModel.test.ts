@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { groupNotes, sortNotes, filterNotes, groupNotesBySwimlane, ETC_LANE } from './viewModel'
+import {
+  groupNotes,
+  sortNotes,
+  filterNotes,
+  groupNotesBySwimlane,
+  ETC_LANE,
+  makeSwimlaneDroppableId,
+  parseSwimlaneDroppableId
+} from './viewModel'
 import type { Note } from '@renderer/types'
 
 function makeNote(overrides: Partial<Note> & { filePath: string }): Note {
@@ -220,5 +228,27 @@ describe('groupNotesBySwimlane', () => {
     const before = [...notes]
     groupNotesBySwimlane(notes, ['proj-A'])
     expect(notes).toEqual(before)
+  })
+})
+
+describe('swimlane droppable id', () => {
+  it('make → parse 왕복', () => {
+    const id = makeSwimlaneDroppableId(2, 'in-progress')
+    expect(id).toBe('2::in-progress')
+    expect(parseSwimlaneDroppableId(id)).toEqual({ laneIndex: 2, status: 'in-progress' })
+  })
+
+  it('단일키(기존 status id)는 null', () => {
+    expect(parseSwimlaneDroppableId('in-progress')).toBeNull()
+    expect(parseSwimlaneDroppableId('done')).toBeNull()
+  })
+
+  it('레인 부분이 숫자가 아니면 null (파일 경로 등 오인 방지)', () => {
+    expect(parseSwimlaneDroppableId('C::/Users/x/note.md')).toBeNull()
+    expect(parseSwimlaneDroppableId('abc::done')).toBeNull()
+  })
+
+  it('status 부분이 비어 있으면 null', () => {
+    expect(parseSwimlaneDroppableId('1::')).toBeNull()
   })
 })
