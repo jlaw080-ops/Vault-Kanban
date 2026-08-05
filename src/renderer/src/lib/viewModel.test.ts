@@ -6,7 +6,8 @@ import {
   groupNotesBySwimlane,
   ETC_LANE,
   makeSwimlaneDroppableId,
-  parseSwimlaneDroppableId
+  parseSwimlaneDroppableId,
+  decideSwimlaneDrop
 } from './viewModel'
 import type { Note } from '@renderer/types'
 
@@ -250,5 +251,72 @@ describe('swimlane droppable id', () => {
 
   it('status 부분이 비어 있으면 null', () => {
     expect(parseSwimlaneDroppableId('1::')).toBeNull()
+  })
+})
+
+describe('decideSwimlaneDrop', () => {
+  const note = makeNote({
+    filePath: '/vault/A/note1.md',
+    status: 'backlog',
+    project: 'proj-A'
+  })
+
+  it('같은 레인 + 같은 상태 = null (no-op)', () => {
+    expect(decideSwimlaneDrop(note, 'proj-A', 'backlog')).toBeNull()
+  })
+
+  it('같은 레인 + 다른 상태 = status만 변경', () => {
+    const d = decideSwimlaneDrop(note, 'proj-A', 'done')
+    expect(d).toEqual({
+      statusChanged: true,
+      nextStatus: 'done',
+      projectChanged: false,
+      nextProject: 'proj-A'
+    })
+  })
+
+  it('다른 레인 + 같은 상태 = project만 변경', () => {
+    const d = decideSwimlaneDrop(note, 'proj-B', 'backlog')
+    expect(d).toEqual({
+      statusChanged: false,
+      nextStatus: 'backlog',
+      projectChanged: true,
+      nextProject: 'proj-B'
+    })
+  })
+
+  it('대각선 드롭 = status + project 동시 변경', () => {
+    const d = decideSwimlaneDrop(note, 'proj-B', 'in-progress')
+    expect(d).toEqual({
+      statusChanged: true,
+      nextStatus: 'in-progress',
+      projectChanged: true,
+      nextProject: 'proj-B'
+    })
+  })
+
+  it('기타 레인 드롭 = project 보존, status만 변경', () => {
+    const d = decideSwimlaneDrop(note, ETC_LANE, 'review')
+    expect(d).toEqual({
+      statusChanged: true,
+      nextStatus: 'review',
+      projectChanged: false,
+      nextProject: 'proj-A'
+    })
+  })
+
+  it('기타 레인 + 같은 상태 = null', () => {
+    expect(decideSwimlaneDrop(note, ETC_LANE, 'backlog')).toBeNull()
+  })
+
+  it('project 없는 노트를 프로젝트 레인에 드롭 = project 부여', () => {
+    const noProject = makeNote({ filePath: '/vault/B/note3.md', status: 'done' })
+    const d = decideSwimlaneDrop(noProject, 'proj-A', 'done')
+    expect(d).toEqual({
+      statusChanged: false,
+      nextStatus: 'done',
+      projectChanged: true,
+      nextProject: 'proj-A'
+    })
   })
 })

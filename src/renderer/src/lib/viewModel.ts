@@ -149,6 +149,29 @@ export function parseSwimlaneDroppableId(
   return { laneIndex: Number(lanePart), status }
 }
 
+export interface SwimlaneDropDecision {
+  statusChanged: boolean
+  nextStatus: Status
+  projectChanged: boolean
+  nextProject: string | undefined
+}
+
+export function decideSwimlaneDrop(
+  note: Note,
+  laneName: string,
+  targetStatus: Status
+): SwimlaneDropDecision | null {
+  const statusChanged = targetStatus !== note.status
+  const projectChanged = laneName !== ETC_LANE && note.project !== laneName
+  if (!statusChanged && !projectChanged) return null
+  return {
+    statusChanged,
+    nextStatus: targetStatus,
+    projectChanged,
+    nextProject: projectChanged ? laneName : note.project
+  }
+}
+
 export function groupNotesBySwimlane(
   notes: Note[],
   selectedProjects: string[]
