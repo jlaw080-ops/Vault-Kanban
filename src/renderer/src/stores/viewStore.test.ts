@@ -1,5 +1,18 @@
 import { describe, it, expect } from 'vitest'
+import { createJSONStorage } from 'zustand/middleware'
 import { useViewStore } from './viewStore'
+
+// Node 22+ 실험적 webstorage가 setItem 없는 localStorage 전역을 제공해
+// persist 쓰기가 깨지므로, 테스트에서는 인메모리 스토리지로 교체한다.
+// (partialize/migrate/version 검증은 setOptions와 무관하게 원본 정의를 본다)
+const memoryStore = new Map<string, string>()
+useViewStore.persist.setOptions({
+  storage: createJSONStorage(() => ({
+    getItem: (k: string) => memoryStore.get(k) ?? null,
+    setItem: (k: string, v: string) => void memoryStore.set(k, v),
+    removeItem: (k: string) => void memoryStore.delete(k)
+  }))
+})
 
 describe('viewStore 스윔레인 상태', () => {
   it('기본값: 비활성, 선택 없음, 기타 레인 표시', () => {
