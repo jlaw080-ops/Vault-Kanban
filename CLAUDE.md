@@ -70,7 +70,7 @@
 - SQLite, IndexedDB 등 별도 DB 도입 (ADR-007 참조. `.md` 파일이 Single Source of Truth).
 - OpenAI/Gemini 등 다른 AI 공급자 지원 (ADR-008).
 - Tauri/Neutralino 등 프레임워크 변경 제안 (ADR-001).
-- 스윔레인, 모바일 뷰, 팀 공유, 회고 자동화 기능 구현 (PRD "MVP 제외 사항").
+- 모바일 뷰, 팀 공유, 회고 자동화 기능 구현 (PRD "MVP 제외 사항"). 스윔레인은 v0.2 범위로 해제됨 (2026-08-06 설계 승인).
 - 본문(마크다운 body)을 앱이 임의 수정. 본문은 **보존만** 한다.
 - `contextIsolation: false` 또는 `nodeIntegration: true` 설정.
 - `git push --force`, `git reset --hard`, `rm -rf` 사용 (Hook이 자동 차단).
