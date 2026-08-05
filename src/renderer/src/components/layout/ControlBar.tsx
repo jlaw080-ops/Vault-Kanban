@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Filter, X, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react'
+import { Filter, X, ChevronDown, ChevronRight, RefreshCw, Rows3 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useViewStore } from '../../stores/viewStore'
 import { useVaultStore } from '../../stores/vaultStore'
@@ -31,10 +31,25 @@ const PRIORITY_LABELS: Record<string, string> = {
 }
 
 export function ControlBar(): JSX.Element {
-  const { grouping, sort, filters, setGrouping, setSort, setFilters, resetFilters } = useViewStore()
+  const {
+    grouping,
+    sort,
+    filters,
+    setGrouping,
+    setSort,
+    setFilters,
+    resetFilters,
+    swimlaneEnabled,
+    swimlaneProjects,
+    showEtcLane,
+    setSwimlaneEnabled,
+    toggleSwimlaneProject,
+    setShowEtcLane
+  } = useViewStore()
   const { notes, vaultPath, loading, loadVault } = useVaultStore()
   const { settings } = useSettingsStore()
   const [filterOpen, setFilterOpen] = useState(false)
+  const [swimlaneOpen, setSwimlaneOpen] = useState(false)
   const [tagsExpanded, setTagsExpanded] = useState(false)
   const popoverRef = useRef<HTMLDivElement>(null)
 
@@ -54,6 +69,11 @@ export function ControlBar(): JSX.Element {
       allProjects: [...projectSet].sort()
     }
   }, [notes])
+
+  const laneProjectOptions = useMemo(
+    () => [...new Set([...allProjects, ...swimlaneProjects])].sort(),
+    [allProjects, swimlaneProjects]
+  )
 
   const activeFilterCount =
     filters.tags.length +
@@ -249,6 +269,77 @@ export function ControlBar(): JSX.Element {
         )}
       </div>
 
+      <div className="relative">
+        <button
+          onClick={() => setSwimlaneOpen((o) => !o)}
+          disabled={grouping !== 'status'}
+          title={grouping !== 'status' ? '상태 그룹핑에서만 사용 가능' : '스윔레인 설정'}
+          className={cn(
+            'flex items-center gap-1 text-xs px-2 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
+            swimlaneEnabled && swimlaneProjects.length > 0 && grouping === 'status'
+              ? 'border-accent bg-accent/10 text-accent'
+              : 'border-border bg-muted text-muted-foreground'
+          )}
+        >
+          <Rows3 className="w-3 h-3" />
+          레인
+          {swimlaneEnabled && swimlaneProjects.length > 0 && (
+            <span className="ml-0.5 font-semibold">{swimlaneProjects.length}</span>
+          )}
+        </button>
+
+        {swimlaneOpen && (
+          <div className="absolute top-full left-0 mt-1 z-50 w-72 max-h-[70vh] overflow-y-auto rounded-md border border-border bg-popover shadow-[rgba(0,0,0,0.5)_0px_8px_24px] p-3 flex flex-col gap-3">
+            <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={swimlaneEnabled}
+                onChange={(e) => setSwimlaneEnabled(e.target.checked)}
+              />
+              스윔레인 사용
+            </label>
+
+            <div>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1.5">
+                레인 프로젝트
+              </p>
+              {laneProjectOptions.length === 0 ? (
+                <p className="text-xs text-muted-foreground">프로젝트 없음</p>
+              ) : (
+                <div className="flex flex-wrap gap-1">
+                  {laneProjectOptions.map((project) => (
+                    <button
+                      key={project}
+                      onClick={() => toggleSwimlaneProject(project)}
+                      className={cn(
+                        chipBase,
+                        swimlaneProjects.includes(project) ? chipActive : chipInactive
+                      )}
+                    >
+                      {project}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {swimlaneEnabled && swimlaneProjects.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  레인으로 볼 프로젝트를 선택하세요
+                </p>
+              )}
+            </div>
+
+            <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showEtcLane}
+                onChange={(e) => setShowEtcLane(e.target.checked)}
+              />
+              기타 레인 표시
+            </label>
+          </div>
+        )}
+      </div>
+
       <input
         type="text"
         placeholder="키워드 검색…"
@@ -283,6 +374,9 @@ export function ControlBar(): JSX.Element {
       </button>
 
       {filterOpen && <div className="fixed inset-0 z-40" onClick={() => setFilterOpen(false)} />}
+      {swimlaneOpen && (
+        <div className="fixed inset-0 z-40" onClick={() => setSwimlaneOpen(false)} />
+      )}
     </div>
   )
 }
