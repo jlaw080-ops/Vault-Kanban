@@ -29,6 +29,9 @@ interface ViewState {
   filters: ViewFilters
   toasts: Toast[]
   route: AppRoute
+  swimlaneEnabled: boolean
+  swimlaneProjects: string[]
+  showEtcLane: boolean
   setGrouping: (grouping: Grouping) => void
   setSort: (sort: SortKey) => void
   setFilters: (filters: Partial<ViewFilters>) => void
@@ -36,6 +39,9 @@ interface ViewState {
   pushToast: (message: string, variant?: ToastVariant, durationMs?: number) => void
   dismissToast: (id: string) => void
   setRoute: (route: AppRoute) => void
+  setSwimlaneEnabled: (v: boolean) => void
+  toggleSwimlaneProject: (project: string) => void
+  setShowEtcLane: (v: boolean) => void
 }
 
 const DEFAULT_FILTERS: ViewFilters = {
@@ -55,11 +61,23 @@ export const useViewStore = create<ViewState>()(
       toasts: [],
       route: 'kanban' as AppRoute,
 
+      swimlaneEnabled: false,
+      swimlaneProjects: [],
+      showEtcLane: true,
+
       setGrouping: (grouping) => set({ grouping }),
       setSort: (sort) => set({ sort }),
       setFilters: (partial) => set((state) => ({ filters: { ...state.filters, ...partial } })),
       resetFilters: () => set({ filters: DEFAULT_FILTERS }),
       setRoute: (route) => set({ route }),
+      setSwimlaneEnabled: (v) => set({ swimlaneEnabled: v }),
+      toggleSwimlaneProject: (project) =>
+        set((state) => ({
+          swimlaneProjects: state.swimlaneProjects.includes(project)
+            ? state.swimlaneProjects.filter((p) => p !== project)
+            : [...state.swimlaneProjects, project]
+        })),
+      setShowEtcLane: (v) => set({ showEtcLane: v }),
 
       pushToast: (message, variant = 'info', durationMs = 4000) => {
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -72,7 +90,7 @@ export const useViewStore = create<ViewState>()(
     }),
     {
       name: 'vault-kanban-view',
-      version: 2,
+      version: 3,
       migrate: (persisted: unknown, version: number) => {
         const s = persisted as { filters?: Partial<ViewFilters>; grouping?: string }
         if (version < 1 && s?.filters && !s.filters.projects) {
@@ -82,12 +100,21 @@ export const useViewStore = create<ViewState>()(
           const map: Record<string, string> = { '상태': 'status', '태그': 'tag', '폴더': 'folder', '프로젝트': 'project' }
           if (map[s.grouping]) s.grouping = map[s.grouping]
         }
+        if (version < 3) {
+          const s3 = s as Record<string, unknown>
+          s3.swimlaneEnabled = false
+          s3.swimlaneProjects = []
+          s3.showEtcLane = true
+        }
         return s as ViewState
       },
       partialize: (state) => ({
         grouping: state.grouping,
         sort: state.sort,
-        filters: state.filters
+        filters: state.filters,
+        swimlaneEnabled: state.swimlaneEnabled,
+        swimlaneProjects: state.swimlaneProjects,
+        showEtcLane: state.showEtcLane
       })
     }
   )
