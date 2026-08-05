@@ -1,4 +1,4 @@
-import type { Note, Priority } from '@renderer/types'
+import type { Note, Priority, Status } from '@renderer/types'
 
 type Grouping = 'status' | 'tag' | 'folder' | 'project'
 type SortKey = 'modifiedDesc' | 'modifiedAsc' | 'createdDesc' | 'createdAsc' | 'titleAsc' | 'dueAsc' | 'priorityDesc'
@@ -115,4 +115,39 @@ export function filterNotes(notes: Note[], filters: Filters): Note[] {
   }
 
   return result
+}
+
+export const ETC_LANE = '(기타)'
+
+export const STATUS_COLUMNS: readonly Status[] = [
+  'backlog',
+  'planned',
+  'in-progress',
+  'review',
+  'done'
+]
+
+export interface SwimlaneGroup {
+  lane: string
+  notes: Note[]
+}
+
+export function groupNotesBySwimlane(
+  notes: Note[],
+  selectedProjects: string[]
+): SwimlaneGroup[] {
+  const lanes: SwimlaneGroup[] = selectedProjects.map((p) => ({ lane: p, notes: [] }))
+  const etc: SwimlaneGroup = { lane: ETC_LANE, notes: [] }
+  const indexByProject = new Map(selectedProjects.map((p, i) => [p, i]))
+
+  for (const note of notes) {
+    const idx = note.project !== undefined ? indexByProject.get(note.project) : undefined
+    if (idx !== undefined) {
+      lanes[idx].notes.push(note)
+    } else {
+      etc.notes.push(note)
+    }
+  }
+
+  return [...lanes, etc]
 }

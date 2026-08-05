@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { groupNotes, sortNotes, filterNotes } from './viewModel'
+import { groupNotes, sortNotes, filterNotes, groupNotesBySwimlane, ETC_LANE } from './viewModel'
 import type { Note } from '@renderer/types'
 
 function makeNote(overrides: Partial<Note> & { filePath: string }): Note {
@@ -176,5 +176,49 @@ describe('filterNotes', () => {
       keyword: ''
     })
     expect(result).toHaveLength(1) // note1: A 폴더에 alpha 태그
+  })
+})
+
+describe('groupNotesBySwimlane', () => {
+  it('레인 순서 = selectedProjects 순서, 기타 레인은 항상 마지막', () => {
+    const lanes = groupNotesBySwimlane(notes, ['proj-B', 'proj-A'])
+    expect(lanes.map((l) => l.lane)).toEqual(['proj-B', 'proj-A', ETC_LANE])
+  })
+
+  it('선택된 프로젝트의 노트는 해당 레인으로 분배된다', () => {
+    const lanes = groupNotesBySwimlane(notes, ['proj-A', 'proj-B'])
+    expect(lanes[0].notes.map((n) => n.filePath)).toEqual(['/vault/A/note1.md'])
+    expect(lanes[1].notes.map((n) => n.filePath)).toEqual(['/vault/A/note2.md'])
+  })
+
+  it('미선택 프로젝트·프로젝트 없는 노트는 기타 레인으로 간다', () => {
+    const lanes = groupNotesBySwimlane(notes, ['proj-A'])
+    const etc = lanes[lanes.length - 1]
+    expect(etc.lane).toBe(ETC_LANE)
+    // note2(proj-B, 미선택) + note3·note4(project 없음)
+    expect(etc.notes.map((n) => n.filePath)).toEqual([
+      '/vault/A/note2.md',
+      '/vault/B/note3.md',
+      '/vault/B/note4.md'
+    ])
+  })
+
+  it('노트가 0개인 선택 프로젝트도 빈 레인으로 유지된다', () => {
+    const lanes = groupNotesBySwimlane(notes, ['proj-A', 'proj-없음'])
+    expect(lanes[1].lane).toBe('proj-없음')
+    expect(lanes[1].notes).toEqual([])
+  })
+
+  it('선택이 비어 있으면 기타 레인 하나만 반환한다', () => {
+    const lanes = groupNotesBySwimlane(notes, [])
+    expect(lanes).toHaveLength(1)
+    expect(lanes[0].lane).toBe(ETC_LANE)
+    expect(lanes[0].notes).toHaveLength(notes.length)
+  })
+
+  it('입력 배열을 변형하지 않는다', () => {
+    const before = [...notes]
+    groupNotesBySwimlane(notes, ['proj-A'])
+    expect(notes).toEqual(before)
   })
 })
