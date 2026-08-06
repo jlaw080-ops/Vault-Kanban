@@ -114,7 +114,8 @@ describe('DocumentView', () => {
     const second = makeNote({ body: '```mermaid\ngraph LR;\nX-->Y;\n```' })
     rerender(<DocumentView note={second} open onOpenChange={() => {}} />)
     expect(screen.getByRole('button', { name: /인쇄/ })).toBeDisabled()
-  })
+    // waitFor 는 15초를 기다리지만 테스트 기본 타임아웃(5초)이 먼저 끊겨 부하 시 플레이키 — 테스트 한도를 늘린다
+  }, 20_000)
 
   it('열려 있으면 body 에 doc-view-open 클래스가 붙는다', () => {
     render(<DocumentView note={makeNote()} open onOpenChange={() => {}} />)
