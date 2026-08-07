@@ -3,6 +3,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 import type { Note, Settings } from '../main/utils/markdown'
 import type { AiNoteInput, AiGroupResult, RelatedResult } from '../main/ipc/ai'
 import type { FolderNode } from '../main/ipc/vault'
+import type { PresetFieldValues } from '../main/utils/metadataMenu'
 
 const vault = {
   select: (): Promise<string | null> => ipcRenderer.invoke('vault:select'),
@@ -18,7 +19,9 @@ const vault = {
   deleteNote: (filePath: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('vault:deleteNote', filePath),
   listFolders: (vaultPath: string, excluded?: string[]): Promise<FolderNode[]> =>
-    ipcRenderer.invoke('vault:listFolders', vaultPath, excluded)
+    ipcRenderer.invoke('vault:listFolders', vaultPath, excluded),
+  getPresetFields: (vaultPath: string): Promise<PresetFieldValues | null> =>
+    ipcRenderer.invoke('vault:getPresetFields', vaultPath)
 }
 
 const watcher = {

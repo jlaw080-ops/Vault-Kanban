@@ -2,6 +2,7 @@ import { dialog, ipcMain, BrowserWindow } from 'electron'
 import { promises as fs } from 'fs'
 import { join } from 'path'
 import { parseNote, serializeNote, type Note } from '../utils/markdown'
+import { readPresetFields } from '../utils/metadataMenu'
 import { getSettingValue } from './settings'
 
 const DEFAULT_EXCLUDED_FOLDERS: readonly string[] = [
@@ -160,6 +161,10 @@ export function registerVaultHandlers(): void {
       return walkFolders(vaultPath, '', excluded ?? DEFAULT_EXCLUDED_FOLDERS)
     }
   )
+
+  ipcMain.handle('vault:getPresetFields', async (_event, vaultPath: string) => {
+    return readPresetFields(vaultPath)
+  })
 
   ipcMain.handle(
     'vault:moveNote',

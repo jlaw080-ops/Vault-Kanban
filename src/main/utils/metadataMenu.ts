@@ -1,3 +1,6 @@
+import { promises as fs } from 'fs'
+import { join } from 'path'
+
 export interface PresetFieldValues {
   projects: string[]
   statuses: string[]
@@ -63,4 +66,21 @@ export function parseMetadataMenuPresets(jsonText: string): PresetFieldValues | 
   }
 
   return result
+}
+
+export async function readPresetFields(vaultPath: string): Promise<PresetFieldValues | null> {
+  const dataPath = join(vaultPath, '.obsidian', 'plugins', 'metadata-menu', 'data.json')
+  let jsonText: string
+  try {
+    jsonText = await fs.readFile(dataPath, 'utf-8')
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.warn(`[metadata-menu] data.json 읽기 실패 — 노트 유도 값으로 폴백: ${message}`)
+    return null
+  }
+  const parsed = parseMetadataMenuPresets(jsonText)
+  if (parsed === null) {
+    console.warn('[metadata-menu] data.json 파싱 실패 — 노트 유도 값으로 폴백')
+  }
+  return parsed
 }
