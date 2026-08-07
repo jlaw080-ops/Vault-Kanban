@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { createJSONStorage } from 'zustand/middleware'
 import { useViewStore } from './viewStore'
+import { SWIMLANE_MIN_HEIGHT, SWIMLANE_MAX_HEIGHT } from '../lib/viewModel'
 
 // Node 22+ 실험적 webstorage가 setItem 없는 localStorage 전역을 제공해
 // persist 쓰기가 깨지므로, 테스트에서는 인메모리 스토리지로 교체한다.
@@ -40,6 +41,7 @@ describe('viewStore persist 회귀 방지 (2026-05-04 grouping 버그 교훈)', 
     expect(partial).toHaveProperty('swimlaneEnabled')
     expect(partial).toHaveProperty('swimlaneProjects')
     expect(partial).toHaveProperty('showEtcLane')
+    expect(partial).toHaveProperty('swimlaneHeights')
     // 기존 필드 유지
     expect(partial).toHaveProperty('grouping')
     expect(partial).toHaveProperty('sort')
@@ -61,7 +63,80 @@ describe('viewStore persist 회귀 방지 (2026-05-04 grouping 버그 교훈)', 
     expect(migrated.showEtcLane).toBe(true)
   })
 
-  it('persist version은 3이다', () => {
-    expect(useViewStore.persist.getOptions().version).toBe(3)
+  it('persist version은 4이다', () => {
+    expect(useViewStore.persist.getOptions().version).toBe(4)
+  })
+})
+
+describe('viewStore 스윔레인 레인 높이', () => {
+  it('기본값: 빈 객체', () => {
+    expect(useViewStore.getState().swimlaneHeights).toEqual({})
+  })
+
+  it('setSwimlaneHeight: 범위 내 값 저장, 불변 갱신', () => {
+    const before = useViewStore.getState().swimlaneHeights
+    useViewStore.getState().setSwimlaneHeight('proj-A', 400)
+    const after = useViewStore.getState().swimlaneHeights
+    expect(after['proj-A']).toBe(400)
+    expect(after).not.toBe(before)
+    expect(before).toEqual({}) // 원본 미변경
+    useViewStore.getState().resetSwimlaneHeight('proj-A') // 정리
+  })
+
+  it('setSwimlaneHeight: 범위 밖 값은 클램프해 저장한다', () => {
+    useViewStore.getState().setSwimlaneHeight('proj-A', 2000)
+    expect(useViewStore.getState().swimlaneHeights['proj-A']).toBe(SWIMLANE_MAX_HEIGHT)
+    useViewStore.getState().setSwimlaneHeight('proj-A', 10)
+    expect(useViewStore.getState().swimlaneHeights['proj-A']).toBe(SWIMLANE_MIN_HEIGHT)
+    useViewStore.getState().resetSwimlaneHeight('proj-A')
+  })
+
+  it('resetSwimlaneHeight: 해당 키만 삭제하고 다른 레인은 유지한다', () => {
+    useViewStore.getState().setSwimlaneHeight('proj-A', 400)
+    useViewStore.getState().setSwimlaneHeight('(기타)', 500)
+    useViewStore.getState().resetSwimlaneHeight('proj-A')
+    const heights = useViewStore.getState().swimlaneHeights
+    expect(heights).not.toHaveProperty('proj-A')
+    expect(heights['(기타)']).toBe(500)
+    useViewStore.getState().resetSwimlaneHeight('(기타)')
+  })
+
+  it('resetSwimlaneHeight: 없는 키에 호출해도 안전하다', () => {
+    useViewStore.getState().resetSwimlaneHeight('없는-레인')
+    expect(useViewStore.getState().swimlaneHeights).toEqual({})
+  })
+})
+
+describe('viewStore persist v4 마이그레이션', () => {
+  it('migrate v3→v4: swimlaneHeights 기본값 주입', () => {
+    const options = useViewStore.persist.getOptions()
+    const migrated = options.migrate!(
+      {
+        grouping: 'status',
+        sort: 'modifiedDesc',
+        filters: { tags: [], folders: [], projects: [], priority: 'all', keyword: '' },
+        swimlaneEnabled: true,
+        swimlaneProjects: ['proj-A'],
+        showEtcLane: true
+      },
+      3
+    ) as Record<string, unknown>
+    expect(migrated.swimlaneHeights).toEqual({})
+    // 기존 필드는 보존
+    expect(migrated.swimlaneProjects).toEqual(['proj-A'])
+  })
+
+  it('migrate v2→v4: 스윔레인 기본값과 swimlaneHeights 모두 주입', () => {
+    const options = useViewStore.persist.getOptions()
+    const migrated = options.migrate!(
+      {
+        grouping: 'status',
+        sort: 'modifiedDesc',
+        filters: { tags: [], folders: [], projects: [], priority: 'all', keyword: '' }
+      },
+      2
+    ) as Record<string, unknown>
+    expect(migrated.swimlaneEnabled).toBe(false)
+    expect(migrated.swimlaneHeights).toEqual({})
   })
 })

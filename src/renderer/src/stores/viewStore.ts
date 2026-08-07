@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Settings, Priority } from '@renderer/types'
+import { clampSwimlaneHeight } from '../lib/viewModel'
 
 type Grouping = Settings['defaultGrouping']
 type SortKey = Settings['defaultSort']
@@ -32,6 +33,7 @@ interface ViewState {
   swimlaneEnabled: boolean
   swimlaneProjects: string[]
   showEtcLane: boolean
+  swimlaneHeights: Record<string, number>
   setGrouping: (grouping: Grouping) => void
   setSort: (sort: SortKey) => void
   setFilters: (filters: Partial<ViewFilters>) => void
@@ -42,6 +44,8 @@ interface ViewState {
   setSwimlaneEnabled: (v: boolean) => void
   toggleSwimlaneProject: (project: string) => void
   setShowEtcLane: (v: boolean) => void
+  setSwimlaneHeight: (lane: string, px: number) => void
+  resetSwimlaneHeight: (lane: string) => void
 }
 
 const DEFAULT_FILTERS: ViewFilters = {
@@ -64,6 +68,7 @@ export const useViewStore = create<ViewState>()(
       swimlaneEnabled: false,
       swimlaneProjects: [],
       showEtcLane: true,
+      swimlaneHeights: {},
 
       setGrouping: (grouping) => set({ grouping }),
       setSort: (sort) => set({ sort }),
@@ -78,6 +83,16 @@ export const useViewStore = create<ViewState>()(
             : [...state.swimlaneProjects, project]
         })),
       setShowEtcLane: (v) => set({ showEtcLane: v }),
+      setSwimlaneHeight: (lane, px) =>
+        set((state) => ({
+          swimlaneHeights: { ...state.swimlaneHeights, [lane]: clampSwimlaneHeight(px) }
+        })),
+      resetSwimlaneHeight: (lane) =>
+        set((state) => {
+          const next = { ...state.swimlaneHeights }
+          delete next[lane] // 복사본에 대한 delete — 원본 불변
+          return { swimlaneHeights: next }
+        }),
 
       pushToast: (message, variant = 'info', durationMs = 4000) => {
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -90,7 +105,7 @@ export const useViewStore = create<ViewState>()(
     }),
     {
       name: 'vault-kanban-view',
-      version: 3,
+      version: 4,
       migrate: (persisted: unknown, version: number) => {
         const s = persisted as { filters?: Partial<ViewFilters>; grouping?: string }
         if (version < 1 && s?.filters && !s.filters.projects) {
@@ -106,6 +121,10 @@ export const useViewStore = create<ViewState>()(
           s3.swimlaneProjects = []
           s3.showEtcLane = true
         }
+        if (version < 4) {
+          const s4 = s as Record<string, unknown>
+          s4.swimlaneHeights = {}
+        }
         return s as ViewState
       },
       partialize: (state) => ({
@@ -114,7 +133,8 @@ export const useViewStore = create<ViewState>()(
         filters: state.filters,
         swimlaneEnabled: state.swimlaneEnabled,
         swimlaneProjects: state.swimlaneProjects,
-        showEtcLane: state.showEtcLane
+        showEtcLane: state.showEtcLane,
+        swimlaneHeights: state.swimlaneHeights
       })
     }
   )
