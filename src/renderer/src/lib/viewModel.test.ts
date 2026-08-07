@@ -7,7 +7,9 @@ import {
   ETC_LANE,
   makeSwimlaneDroppableId,
   parseSwimlaneDroppableId,
-  decideSwimlaneDrop
+  decideSwimlaneDrop,
+  mergeProjectOptions,
+  presetMismatchMessage
 } from './viewModel'
 import type { Note } from '@renderer/types'
 
@@ -318,5 +320,73 @@ describe('decideSwimlaneDrop', () => {
       projectChanged: true,
       nextProject: 'proj-A'
     })
+  })
+})
+
+describe('mergeProjectOptions — MM preset ∪ 노트 유도 값', () => {
+  it('preset 순서를 그대로 유지한다 (정렬하지 않음)', () => {
+    expect(mergeProjectOptions(['다', '가', '나'], [])).toEqual(['다', '가', '나'])
+  })
+
+  it('derived에만 있는 값은 뒤에 ko 가나다순으로 붙인다', () => {
+    expect(mergeProjectOptions(['에너빌드'], ['하나', '가나', '에너빌드'])).toEqual([
+      '에너빌드',
+      '가나',
+      '하나'
+    ])
+  })
+
+  it('중복 제거 — preset과 derived 양쪽 중복 모두', () => {
+    expect(mergeProjectOptions(['A', 'A', 'B'], ['B', 'C', 'C'])).toEqual(['A', 'B', 'C'])
+  })
+
+  it('preset 빈 배열이면 derived만 ko 정렬로 반환 (현재 동작과 동일)', () => {
+    expect(mergeProjectOptions([], ['나', '가'])).toEqual(['가', '나'])
+  })
+
+  it('양쪽 빈 배열 → 빈 배열', () => {
+    expect(mergeProjectOptions([], [])).toEqual([])
+  })
+})
+
+describe('presetMismatchMessage — status/priority 일치 검증', () => {
+  const APP_STATUSES = ['backlog', 'planned', 'in-progress', 'review', 'done']
+
+  it('둘 다 일치하면 null', () => {
+    expect(
+      presetMismatchMessage({ statuses: APP_STATUSES, priorities: ['low', 'mid', 'high'] })
+    ).toBeNull()
+  })
+
+  it('순서가 달라도 집합이 같으면 null', () => {
+    expect(
+      presetMismatchMessage({
+        statuses: ['done', 'backlog', 'planned', 'review', 'in-progress'],
+        priorities: ['high', 'low', 'mid']
+      })
+    ).toBeNull()
+  })
+
+  it('빈 배열은 검증 대상이 아니다 (MM에 해당 필드가 없는 경우) → null', () => {
+    expect(presetMismatchMessage({ statuses: [], priorities: [] })).toBeNull()
+  })
+
+  it('statuses 불일치 → 경고 메시지에 status 차이 포함', () => {
+    const msg = presetMismatchMessage({
+      statuses: ['todo', 'doing', 'done'],
+      priorities: ['low', 'mid', 'high']
+    })
+    expect(msg).toContain('status')
+    expect(msg).toContain('todo')
+    expect(msg).not.toContain('priority:')
+  })
+
+  it('priorities 불일치 → 경고 메시지에 priority 차이 포함', () => {
+    const msg = presetMismatchMessage({
+      statuses: [],
+      priorities: ['낮음', '중간', '높음']
+    })
+    expect(msg).toContain('priority')
+    expect(msg).toContain('낮음')
   })
 })

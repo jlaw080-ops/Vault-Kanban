@@ -172,6 +172,37 @@ export function decideSwimlaneDrop(
   }
 }
 
+export function mergeProjectOptions(preset: string[], derived: string[]): string[] {
+  const merged = [...new Set(preset)]
+  const seen = new Set(merged)
+  const extras = [...new Set(derived)].filter((d) => !seen.has(d))
+  extras.sort((a, b) => a.localeCompare(b, 'ko'))
+  return [...merged, ...extras]
+}
+
+const APP_PRIORITIES: readonly string[] = ['low', 'mid', 'high']
+
+function sameSet(a: readonly string[], b: readonly string[]): boolean {
+  const as = new Set(a)
+  const bs = new Set(b)
+  return as.size === bs.size && [...as].every((x) => bs.has(x))
+}
+
+export function presetMismatchMessage(preset: {
+  statuses: string[]
+  priorities: string[]
+}): string | null {
+  const diffs: string[] = []
+  if (preset.statuses.length > 0 && !sameSet(preset.statuses, STATUS_COLUMNS)) {
+    diffs.push(`status: [${preset.statuses.join(', ')}]`)
+  }
+  if (preset.priorities.length > 0 && !sameSet(preset.priorities, APP_PRIORITIES)) {
+    diffs.push(`priority: [${preset.priorities.join(', ')}]`)
+  }
+  if (diffs.length === 0) return null
+  return `Metadata Menu의 status/priority 정의가 앱과 다릅니다 — ${diffs.join(' / ')}`
+}
+
 export function groupNotesBySwimlane(
   notes: Note[],
   selectedProjects: string[]
