@@ -24,6 +24,7 @@ import { useViewStore } from '../../stores/viewStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { rehypeWikilinks } from '../../lib/rehypeWikilinks'
 import { cn } from '../../lib/utils'
+import { mergeProjectOptions } from '../../lib/viewModel'
 import type { Note, Status, Priority } from '@renderer/types'
 import { DocumentView } from '../document/DocumentView'
 
@@ -68,7 +69,7 @@ const propSelectCls =
   'text-xs bg-transparent border-0 text-foreground focus:outline-none focus:bg-muted rounded px-1.5 py-0.5 hover:bg-muted transition-colors cursor-pointer'
 
 export function NoteEditor(): JSX.Element | null {
-  const { selectedNote, closeNote, updateNote, notes } = useVaultStore()
+  const { selectedNote, closeNote, updateNote, notes, presetProjects } = useVaultStore()
   const { pushToast } = useViewStore()
   const { settings } = useSettingsStore()
 
@@ -77,8 +78,8 @@ export function NoteEditor(): JSX.Element | null {
     for (const n of notes) {
       if (n.project) s.add(n.project)
     }
-    return [...s].sort()
-  }, [notes])
+    return mergeProjectOptions(presetProjects, [...s])
+  }, [notes, presetProjects])
 
   const [draft, setDraft] = useState<Note | null>(() => (selectedNote ? { ...selectedNote } : null))
   const [dirty, setDirty] = useState(false)

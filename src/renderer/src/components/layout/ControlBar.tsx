@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Filter, X, ChevronDown, ChevronRight, RefreshCw, Rows3 } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { mergeProjectOptions } from '../../lib/viewModel'
 import { useViewStore } from '../../stores/viewStore'
 import { useVaultStore } from '../../stores/vaultStore'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -46,7 +47,7 @@ export function ControlBar(): JSX.Element {
     toggleSwimlaneProject,
     setShowEtcLane
   } = useViewStore()
-  const { notes, vaultPath, loading, loadVault } = useVaultStore()
+  const { notes, vaultPath, loading, loadVault, presetProjects } = useVaultStore()
   const { settings } = useSettingsStore()
   const [filterOpen, setFilterOpen] = useState(false)
   const [swimlaneOpen, setSwimlaneOpen] = useState(false)
@@ -71,8 +72,14 @@ export function ControlBar(): JSX.Element {
   }, [notes])
 
   const laneProjectOptions = useMemo(
-    () => [...new Set([...allProjects, ...swimlaneProjects])].sort(),
-    [allProjects, swimlaneProjects]
+    () =>
+      mergeProjectOptions(presetProjects, [...new Set([...allProjects, ...swimlaneProjects])]),
+    [presetProjects, allProjects, swimlaneProjects]
+  )
+
+  const projectFilterOptions = useMemo(
+    () => mergeProjectOptions(presetProjects, allProjects),
+    [presetProjects, allProjects]
   )
 
   const activeFilterCount =
@@ -163,11 +170,11 @@ export function ControlBar(): JSX.Element {
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1.5">
                 프로젝트 (OR)
               </p>
-              {allProjects.length === 0 ? (
+              {projectFilterOptions.length === 0 ? (
                 <p className="text-xs text-muted-foreground">프로젝트 없음</p>
               ) : (
                 <div className="flex flex-wrap gap-1">
-                  {allProjects.map((project) => (
+                  {projectFilterOptions.map((project) => (
                     <button
                       key={project}
                       onClick={() => toggleProject(project)}
