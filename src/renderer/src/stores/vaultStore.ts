@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import type { Note } from '@renderer/types'
+import { useViewStore } from './viewStore'
+import { presetMismatchMessage } from '../lib/viewModel'
 
 interface VaultState {
   vaultPath: string
@@ -8,6 +10,7 @@ interface VaultState {
   loadProgress: { current: number; total: number } | null
   error: string | null
   selectedNote: Note | null
+  presetProjects: string[]
   setVaultPath: (path: string) => void
   setNotes: (notes: Note[]) => void
   updateNote: (updated: Note) => void
@@ -28,6 +31,7 @@ export const useVaultStore = create<VaultState>((set) => ({
   loadProgress: null,
   error: null,
   selectedNote: null,
+  presetProjects: [],
 
   setVaultPath: (path) => set({ vaultPath: path }),
   setNotes: (notes) => set({ notes }),
@@ -60,7 +64,22 @@ export const useVaultStore = create<VaultState>((set) => ({
     set({ loading: true, error: null, loadProgress: null })
     try {
       const notes = await window.api.vault.scan(path, excludedFolders)
-      set({ notes, loading: false, loadProgress: null })
+
+      let presetProjects: string[] = []
+      try {
+        const preset = await window.api.vault.getPresetFields(path)
+        if (preset) {
+          presetProjects = preset.projects
+          const mismatch = presetMismatchMessage(preset)
+          if (mismatch) {
+            useViewStore.getState().pushToast(mismatch, 'info', 6000)
+          }
+        }
+      } catch {
+        // preset 읽기 실패는 볼트 로드를 막지 않는다 — 노트 유도 값 폴백
+      }
+
+      set({ notes, presetProjects, loading: false, loadProgress: null })
       await window.api.watcher.start(path, excludedFolders ?? ['.obsidian', '.trash', '.git'])
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Vault 로드 실패'
