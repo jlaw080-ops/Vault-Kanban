@@ -222,3 +222,12 @@ export function groupNotesBySwimlane(
 
   return [...lanes, etc]
 }
+
+export const SWIMLANE_DEFAULT_HEIGHT = 288 // 기존 h-72와 동일
+export const SWIMLANE_MIN_HEIGHT = 160
+export const SWIMLANE_MAX_HEIGHT = 800
+
+export function clampSwimlaneHeight(px: number): number {
+  if (!Number.isFinite(px)) return SWIMLANE_DEFAULT_HEIGHT
+  return Math.min(SWIMLANE_MAX_HEIGHT, Math.max(SWIMLANE_MIN_HEIGHT, px))
+}

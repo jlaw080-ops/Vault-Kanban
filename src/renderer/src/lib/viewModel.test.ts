@@ -9,7 +9,11 @@ import {
   parseSwimlaneDroppableId,
   decideSwimlaneDrop,
   mergeProjectOptions,
-  presetMismatchMessage
+  presetMismatchMessage,
+  clampSwimlaneHeight,
+  SWIMLANE_DEFAULT_HEIGHT,
+  SWIMLANE_MIN_HEIGHT,
+  SWIMLANE_MAX_HEIGHT
 } from './viewModel'
 import type { Note } from '@renderer/types'
 
@@ -388,5 +392,36 @@ describe('presetMismatchMessage — status/priority 일치 검증', () => {
     })
     expect(msg).toContain('priority')
     expect(msg).toContain('낮음')
+  })
+})
+
+describe('clampSwimlaneHeight', () => {
+  it('상수 값: DEFAULT 288 (기존 h-72), MIN 160, MAX 800', () => {
+    expect(SWIMLANE_DEFAULT_HEIGHT).toBe(288)
+    expect(SWIMLANE_MIN_HEIGHT).toBe(160)
+    expect(SWIMLANE_MAX_HEIGHT).toBe(800)
+  })
+
+  it('범위 내 값은 그대로 반환한다 (경계 포함)', () => {
+    expect(clampSwimlaneHeight(300)).toBe(300)
+    expect(clampSwimlaneHeight(SWIMLANE_MIN_HEIGHT)).toBe(SWIMLANE_MIN_HEIGHT)
+    expect(clampSwimlaneHeight(SWIMLANE_MAX_HEIGHT)).toBe(SWIMLANE_MAX_HEIGHT)
+  })
+
+  it('MIN 미만은 MIN으로 클램프한다', () => {
+    expect(clampSwimlaneHeight(159)).toBe(SWIMLANE_MIN_HEIGHT)
+    expect(clampSwimlaneHeight(0)).toBe(SWIMLANE_MIN_HEIGHT)
+    expect(clampSwimlaneHeight(-50)).toBe(SWIMLANE_MIN_HEIGHT)
+  })
+
+  it('MAX 초과는 MAX로 클램프한다', () => {
+    expect(clampSwimlaneHeight(801)).toBe(SWIMLANE_MAX_HEIGHT)
+    expect(clampSwimlaneHeight(99999)).toBe(SWIMLANE_MAX_HEIGHT)
+  })
+
+  it('NaN·비유한값은 DEFAULT를 반환한다', () => {
+    expect(clampSwimlaneHeight(NaN)).toBe(SWIMLANE_DEFAULT_HEIGHT)
+    expect(clampSwimlaneHeight(Infinity)).toBe(SWIMLANE_DEFAULT_HEIGHT)
+    expect(clampSwimlaneHeight(-Infinity)).toBe(SWIMLANE_DEFAULT_HEIGHT)
   })
 })
