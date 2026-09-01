@@ -20,6 +20,7 @@ import { RelatedNotesPanel } from '../ai/RelatedNotesPanel'
 import { DailyCalendar } from '../daily/DailyCalendar'
 import { TodoView } from '../todo/TodoView'
 import { MoveToProjectDialog } from '../todo/MoveToProjectDialog'
+import { NewTodoDialog } from '../todo/NewTodoDialog'
 import { useVaultStore } from '../../stores/vaultStore'
 import { useViewStore } from '../../stores/viewStore'
 import type { ColumnConfig, Note, Status } from '@renderer/types'
@@ -46,11 +47,13 @@ export function AppShell(): JSX.Element {
     loading,
     selectedNote,
     openNote,
-    removeNote
+    removeNote,
+    setNotes
   } = useVaultStore()
   const { toasts, dismissToast, route, setRoute, pushToast } = useViewStore()
   const [showAiDialog, setShowAiDialog] = useState(false)
   const [showRelated, setShowRelated] = useState(false)
+  const [showNewTodo, setShowNewTodo] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [editorWidth, setEditorWidth] = useState(DEFAULT_EDITOR_WIDTH)
   const [todoFolder, setTodoFolder] = useState('06_To Do')
@@ -256,6 +259,7 @@ export function AppShell(): JSX.Element {
                   onNoteUpdate={updateNote}
                   onOpenNote={openNote}
                   onMoveNote={(note) => setMoveTarget(note)}
+                  onCreateTodo={() => setShowNewTodo(true)}
                 />
               )}
               {!loading && route === 'dashboard' && <Dashboard notes={notes} />}
@@ -342,6 +346,20 @@ export function AppShell(): JSX.Element {
             if (!next) setMoveTarget(null)
           }}
           onMoved={(oldPath) => removeNote(oldPath)}
+        />
+      )}
+
+      {showNewTodo && (
+        <NewTodoDialog
+          vaultPath={vaultPath}
+          todoFolder={todoFolder}
+          preset={preset}
+          open
+          onOpenChange={setShowNewTodo}
+          onCreated={(created) => {
+            setNotes([...notes, created])
+            openNote(created)
+          }}
         />
       )}
     </div>
