@@ -19,9 +19,10 @@ import { AiGroupingDialog } from '../ai/AiGroupingDialog'
 import { RelatedNotesPanel } from '../ai/RelatedNotesPanel'
 import { DailyCalendar } from '../daily/DailyCalendar'
 import { TodoView } from '../todo/TodoView'
+import { MoveToProjectDialog } from '../todo/MoveToProjectDialog'
 import { useVaultStore } from '../../stores/vaultStore'
 import { useViewStore } from '../../stores/viewStore'
-import type { ColumnConfig, Status } from '@renderer/types'
+import type { ColumnConfig, Note, Status } from '@renderer/types'
 
 const DEFAULT_COLUMNS: ColumnConfig[] = [
   { name: 'backlog' as Status, wipLimit: null, policy: '' },
@@ -53,6 +54,12 @@ export function AppShell(): JSX.Element {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [editorWidth, setEditorWidth] = useState(DEFAULT_EDITOR_WIDTH)
   const [todoFolder, setTodoFolder] = useState('06_To Do')
+  const [projectsFolder, setProjectsFolder] = useState('01_Projects')
+  const [moveTarget, setMoveTarget] = useState<Note | null>(null)
+  const [preset, setPreset] = useState<{ projects: string[]; subProjects: string[] }>({
+    projects: [],
+    subProjects: []
+  })
   const isDragging = useRef(false)
   const dragStartX = useRef(0)
   const dragStartWidth = useRef(0)
@@ -62,9 +69,18 @@ export function AppShell(): JSX.Element {
       .getAll()
       .then((s) => {
         setTodoFolder(s.todoFolder ?? '06_To Do')
+        setProjectsFolder(s.projectsFolder ?? '01_Projects')
       })
       .catch(() => {})
-  }, [route])
+    if (vaultPath) {
+      window.api.vault
+        .getPresetFields(vaultPath)
+        .then((p) => {
+          if (p) setPreset({ projects: p.projects, subProjects: p.subProjects })
+        })
+        .catch(() => {})
+    }
+  }, [vaultPath, route])
 
   useEffect(() => {
     const unsubscribe = window.api.watcher.onUnlink((filePath) => {
@@ -239,6 +255,7 @@ export function AppShell(): JSX.Element {
                   statusOrder={DEFAULT_COLUMNS.map((c) => String(c.name))}
                   onNoteUpdate={updateNote}
                   onOpenNote={openNote}
+                  onMoveNote={(note) => setMoveTarget(note)}
                 />
               )}
               {!loading && route === 'dashboard' && <Dashboard notes={notes} />}
@@ -311,6 +328,20 @@ export function AppShell(): JSX.Element {
           notes={notes}
           onClose={() => setShowAiDialog(false)}
           onApplied={() => setShowAiDialog(false)}
+        />
+      )}
+
+      {moveTarget && (
+        <MoveToProjectDialog
+          note={moveTarget}
+          vaultPath={vaultPath}
+          projectsFolder={projectsFolder}
+          preset={preset}
+          open
+          onOpenChange={(next) => {
+            if (!next) setMoveTarget(null)
+          }}
+          onMoved={(oldPath) => removeNote(oldPath)}
         />
       )}
     </div>
