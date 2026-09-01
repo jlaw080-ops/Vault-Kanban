@@ -150,6 +150,16 @@ export function parseNote(filePath: string, raw: string, mtime: number, statusFi
   if (completed !== undefined) note.completed = completed
 
   if (parseError) note.parseError = parseError
+
+  const extra: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(frontmatter)) {
+    if ((KNOWN_KEYS as readonly string[]).includes(key)) continue
+    if (key === effectiveStatusKey) continue
+    if ((ALIAS_KEYS as readonly string[]).includes(key)) continue
+    extra[key] = value
+  }
+  if (Object.keys(extra).length > 0) note.extraFrontmatter = extra
+
   if (originalKeyOrder.length > 0) note.originalKeyOrder = originalKeyOrder
   note.statusFieldKey = effectiveStatusKey
 
@@ -168,10 +178,19 @@ const KNOWN_KEYS = [
   'completed'
 ] as const
 
+/** 알려진 키의 한국어 별칭 — 값이 이미 KNOWN_KEYS 쪽으로 기록되므로 extra 로 중복 보관하지 않는다. */
+const ALIAS_KEYS = ['우선순위', '상태'] as const
+
+/** 원본 frontmatter 에 title 이 있었을 때만 다시 쓴다. frontmatter 자체가 없던 노트는 기존 동작 유지. */
+function shouldWriteTitle(note: Note): boolean {
+  if (!note.originalKeyOrder || note.originalKeyOrder.length === 0) return true
+  return note.originalKeyOrder.includes('title')
+}
+
 function buildFrontmatterMap(note: Note, statusFieldName: string): Record<string, unknown> {
   const effectiveKey = note.statusFieldKey ?? statusFieldName
   const data: Record<string, unknown> = {}
-  data.title = note.title
+  if (shouldWriteTitle(note)) data.title = note.title
   data[effectiveKey] = note.status
   if (note.priority !== undefined) data.priority = note.priority
   if (note.due !== undefined) data.due = note.due
@@ -180,6 +199,13 @@ function buildFrontmatterMap(note: Note, statusFieldName: string): Record<string
   data.created = note.created
   if (note.started !== undefined) data.started = note.started
   if (note.completed !== undefined) data.completed = note.completed
+
+  // 미지 키 복원 — 알려진 키를 덮지 않는다.
+  for (const [key, value] of Object.entries(note.extraFrontmatter ?? {})) {
+    if (key in data) continue
+    data[key] = value
+  }
+
   return data
 }
 

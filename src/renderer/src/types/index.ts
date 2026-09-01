@@ -19,6 +19,8 @@ export interface Note {
   parseError?: string
   originalKeyOrder?: string[]
   statusFieldKey?: string
+  /** KNOWN_KEYS 및 상태 필드 밖의 frontmatter 키 원본값. 저장 시 그대로 복원한다. */
+  extraFrontmatter?: Record<string, unknown>
 }
 
 export interface ColumnConfig {

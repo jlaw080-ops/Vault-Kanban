@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import matter from 'gray-matter'
 import { parseNote, serializeNote } from './noteParser'
 
 const MTIME = 1_700_000_000_000
@@ -284,5 +285,86 @@ created: 2026-04-01
     const out = serializeNote(note)
     const reparsed = parseNote('/v/t.md', out, MTIME)
     expect(reparsed.body).toBe(note.body)
+  })
+})
+
+describe('미지 frontmatter 키 보존', () => {
+  const TODO_RAW = [
+    '---',
+    'project: 에너빌드',
+    'sub_project: 에너지분석(에너빌드)',
+    'priority: high',
+    'category: action',
+    'status: planned',
+    'works: pending',
+    'tags: []',
+    'created: 2026-08-31',
+    'updated:',
+    'completed:',
+    '---',
+    '',
+    '## 업무 개요',
+    '- 확인'
+  ].join('\n')
+
+  it('parseNote는 KNOWN_KEYS 밖의 키를 extraFrontmatter에 담는다', () => {
+    const note = parseNote('C:/v/06_To Do/a.md', TODO_RAW, 1)
+    expect(note.extraFrontmatter).toEqual({
+      sub_project: '에너지분석(에너빌드)',
+      category: 'action',
+      works: 'pending',
+      updated: null
+    })
+  })
+
+  it('serializeNote는 미지 키를 그대로 되쓴다', () => {
+    const note = parseNote('C:/v/06_To Do/a.md', TODO_RAW, 1)
+    const out = serializeNote(note)
+    expect(out).toContain('sub_project: 에너지분석(에너빌드)')
+    expect(out).toContain('category: action')
+    expect(out).toContain('works: pending')
+    expect(out).toContain('updated: null')
+  })
+
+  it('원본 키 순서를 유지한다', () => {
+    const note = parseNote('C:/v/06_To Do/a.md', TODO_RAW, 1)
+    const reparsed = matter(serializeNote(note))
+    expect(Object.keys(reparsed.data)).toEqual([
+      'project',
+      'sub_project',
+      'priority',
+      'category',
+      'status',
+      'works',
+      'tags',
+      'created',
+      'updated',
+      'completed'
+    ])
+  })
+
+  it('원본에 없던 title 을 주입하지 않는다', () => {
+    const note = parseNote('C:/v/06_To Do/a.md', TODO_RAW, 1)
+    expect(serializeNote(note)).not.toContain('title:')
+  })
+
+  it('frontmatter 가 없는 노트는 기존대로 title 을 기록한다', () => {
+    const note = parseNote('C:/v/06_To Do/무제.md', '본문만 있는 노트', 1)
+    expect(serializeNote(note)).toContain('title: 무제')
+  })
+
+  it('상태 필드가 한국어 키일 때 extraFrontmatter 에 중복되지 않는다', () => {
+    const raw = ['---', '상태: 진행중', 'category: note', '---', '본문'].join('\n')
+    const note = parseNote('C:/v/a.md', raw, 1, '상태')
+    expect(note.extraFrontmatter).toEqual({ category: 'note' })
+    const out = serializeNote(note, '상태')
+    expect(out).toContain('상태: in-progress')
+    expect(out.match(/상태:/g)).toHaveLength(1)
+  })
+
+  it('extraFrontmatter 가 알려진 키를 덮어쓰지 않는다', () => {
+    const note = parseNote('C:/v/a.md', '---\nstatus: planned\n---\n본문', 1)
+    const tampered = { ...note, extraFrontmatter: { status: '오염' } }
+    expect(serializeNote(tampered)).toContain('status: planned')
   })
 })
