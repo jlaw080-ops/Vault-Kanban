@@ -263,6 +263,17 @@ export function AppShell(): JSX.Element {
             }`}
           >
             <span className="flex-1">{toast.message}</span>
+            {toast.action && (
+              <button
+                onClick={() => {
+                  toast.action?.onClick()
+                  dismissToast(toast.id)
+                }}
+                className="text-xs font-bold px-2 py-0.5 rounded-md border border-border text-foreground hover:bg-muted dark:hover:bg-muted"
+              >
+                {toast.action.label}
+              </button>
+            )}
             <button
               onClick={() => dismissToast(toast.id)}
               className="text-xs opacity-60 hover:opacity-100 ml-1"

@@ -63,8 +63,8 @@ describe('viewStore persist 회귀 방지 (2026-05-04 grouping 버그 교훈)', 
     expect(migrated.showEtcLane).toBe(true)
   })
 
-  it('persist version은 4이다', () => {
-    expect(useViewStore.persist.getOptions().version).toBe(4)
+  it('persist version은 5이다', () => {
+    expect(useViewStore.persist.getOptions().version).toBe(5)
   })
 })
 
@@ -138,5 +138,57 @@ describe('viewStore persist v4 마이그레이션', () => {
     ) as Record<string, unknown>
     expect(migrated.swimlaneEnabled).toBe(false)
     expect(migrated.swimlaneHeights).toEqual({})
+  })
+})
+
+describe('viewStore To Do 상태', () => {
+  it('기본값: createdDesc, 빈 키워드', () => {
+    const s = useViewStore.getState()
+    expect(s.todoSort).toBe('createdDesc')
+    expect(s.todoKeyword).toBe('')
+  })
+
+  it('setTodoSort / setTodoKeyword 가 값을 바꾼다', () => {
+    useViewStore.getState().setTodoSort('dueAsc')
+    useViewStore.getState().setTodoKeyword('BIPV')
+    expect(useViewStore.getState().todoSort).toBe('dueAsc')
+    expect(useViewStore.getState().todoKeyword).toBe('BIPV')
+    useViewStore.getState().setTodoSort('createdDesc')
+    useViewStore.getState().setTodoKeyword('')
+  })
+
+  it('partialize 에 todoSort·todoKeyword 가 포함된다', () => {
+    const options = useViewStore.persist.getOptions()
+    const partial = options.partialize!(useViewStore.getState()) as Record<string, unknown>
+    expect(partial).toHaveProperty('todoSort')
+    expect(partial).toHaveProperty('todoKeyword')
+  })
+
+  it('persist 버전은 5이고 v4 저장본을 마이그레이션한다', () => {
+    const options = useViewStore.persist.getOptions()
+    expect(options.version).toBe(5)
+    const migrated = options.migrate!({ grouping: 'status' }, 4) as Record<string, unknown>
+    expect(migrated.todoSort).toBe('createdDesc')
+    expect(migrated.todoKeyword).toBe('')
+  })
+
+  it('todo 라우트를 설정할 수 있다', () => {
+    useViewStore.getState().setRoute('todo')
+    expect(useViewStore.getState().route).toBe('todo')
+    useViewStore.getState().setRoute('kanban')
+  })
+})
+
+describe('viewStore Toast 액션', () => {
+  it('pushToast 에 넘긴 action 이 토스트에 실린다', () => {
+    const onClick = (): void => {}
+    useViewStore.getState().pushToast('이동했습니다', 'success', 0, {
+      label: '되돌리기',
+      onClick
+    })
+    const toast = useViewStore.getState().toasts.at(-1)
+    expect(toast?.action?.label).toBe('되돌리기')
+    expect(toast?.action?.onClick).toBe(onClick)
+    useViewStore.getState().dismissToast(toast!.id)
   })
 })

@@ -45,6 +45,10 @@ export interface Settings {
   editorAutoSave: { enabled: boolean; idleSeconds: number }
   theme: 'system' | 'light' | 'dark'
   columnPageSize: number
+  /** 볼트 루트 기준 상대 경로. To Do 화면이 읽는 폴더 */
+  todoFolder: string
+  /** 볼트 루트 기준 상대 경로. 티켓을 옮길 프로젝트 루트 */
+  projectsFolder: string
   cardFields: CardField[]
 }
 

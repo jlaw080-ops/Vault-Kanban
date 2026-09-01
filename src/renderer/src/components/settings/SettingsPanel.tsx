@@ -94,6 +94,8 @@ export function SettingsPanel(): JSX.Element {
   // Vault section local state
   const [vaultName, setVaultName] = useState('')
   const [excludedInput, setExcludedInput] = useState('')
+  const [todoFolder, setTodoFolder] = useState('06_To Do')
+  const [projectsFolder, setProjectsFolder] = useState('01_Projects')
 
   // Status columns local state
   const [columns, setColumns] = useState<ColumnConfig[]>([])
@@ -107,6 +109,8 @@ export function SettingsPanel(): JSX.Element {
       setVaultName(s.vaultName)
       setColumns(s.statusColumns)
       setStatusFieldName(s.statusFieldName)
+      setTodoFolder(s.todoFolder ?? '06_To Do')
+      setProjectsFolder(s.projectsFolder ?? '01_Projects')
     })
     window.api.apiKey.exists().then(setKeyExists)
     window.api.apiKey.getModel().then(() => {})
@@ -125,6 +129,14 @@ export function SettingsPanel(): JSX.Element {
 
   async function handleVaultNameBlur(): Promise<void> {
     await update('vaultName', vaultName)
+  }
+
+  async function handleTodoFolderBlur(): Promise<void> {
+    await update('todoFolder', todoFolder.trim())
+  }
+
+  async function handleProjectsFolderBlur(): Promise<void> {
+    await update('projectsFolder', projectsFolder.trim())
   }
 
   function addExcludedFolder(): void {
@@ -255,6 +267,26 @@ export function SettingsPanel(): JSX.Element {
                 onBlur={handleVaultNameBlur}
                 className={inputCls}
                 placeholder="My Vault"
+              />
+            </Field>
+
+            <Field label="To Do 폴더 (볼트 루트 기준 상대 경로)">
+              <input
+                value={todoFolder}
+                onChange={(e) => setTodoFolder(e.target.value)}
+                onBlur={handleTodoFolderBlur}
+                className={inputCls}
+                placeholder="06_To Do"
+              />
+            </Field>
+
+            <Field label="프로젝트 폴더 (티켓 이동 대상 루트)">
+              <input
+                value={projectsFolder}
+                onChange={(e) => setProjectsFolder(e.target.value)}
+                onBlur={handleProjectsFolderBlur}
+                className={inputCls}
+                placeholder="01_Projects"
               />
             </Field>
 

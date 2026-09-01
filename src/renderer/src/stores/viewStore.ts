@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Settings, Priority } from '@renderer/types'
+import type { TodoSortKey } from '../lib/todoModel'
 import { clampSwimlaneHeight } from '../lib/viewModel'
 
 type Grouping = Settings['defaultGrouping']
@@ -8,10 +9,16 @@ type SortKey = Settings['defaultSort']
 
 export type ToastVariant = 'success' | 'error' | 'info'
 
+export interface ToastAction {
+  label: string
+  onClick: () => void
+}
+
 export interface Toast {
   id: string
   message: string
   variant: ToastVariant
+  action?: ToastAction
 }
 
 export interface ViewFilters {
@@ -22,7 +29,7 @@ export interface ViewFilters {
   keyword: string
 }
 
-export type AppRoute = 'kanban' | 'dashboard' | 'migration' | 'settings' | 'daily'
+export type AppRoute = 'kanban' | 'dashboard' | 'migration' | 'settings' | 'daily' | 'todo'
 
 interface ViewState {
   grouping: Grouping
@@ -34,11 +41,18 @@ interface ViewState {
   swimlaneProjects: string[]
   showEtcLane: boolean
   swimlaneHeights: Record<string, number>
+  todoSort: TodoSortKey
+  todoKeyword: string
   setGrouping: (grouping: Grouping) => void
   setSort: (sort: SortKey) => void
   setFilters: (filters: Partial<ViewFilters>) => void
   resetFilters: () => void
-  pushToast: (message: string, variant?: ToastVariant, durationMs?: number) => void
+  pushToast: (
+    message: string,
+    variant?: ToastVariant,
+    durationMs?: number,
+    action?: ToastAction
+  ) => void
   dismissToast: (id: string) => void
   setRoute: (route: AppRoute) => void
   setSwimlaneEnabled: (v: boolean) => void
@@ -46,6 +60,8 @@ interface ViewState {
   setShowEtcLane: (v: boolean) => void
   setSwimlaneHeight: (lane: string, px: number) => void
   resetSwimlaneHeight: (lane: string) => void
+  setTodoSort: (key: TodoSortKey) => void
+  setTodoKeyword: (keyword: string) => void
 }
 
 const DEFAULT_FILTERS: ViewFilters = {
@@ -69,6 +85,8 @@ export const useViewStore = create<ViewState>()(
       swimlaneProjects: [],
       showEtcLane: true,
       swimlaneHeights: {},
+      todoSort: 'createdDesc' as TodoSortKey,
+      todoKeyword: '',
 
       setGrouping: (grouping) => set({ grouping }),
       setSort: (sort) => set({ sort }),
@@ -93,10 +111,12 @@ export const useViewStore = create<ViewState>()(
           delete next[lane] // 복사본에 대한 delete — 원본 불변
           return { swimlaneHeights: next }
         }),
+      setTodoSort: (key) => set({ todoSort: key }),
+      setTodoKeyword: (keyword) => set({ todoKeyword: keyword }),
 
-      pushToast: (message, variant = 'info', durationMs = 4000) => {
+      pushToast: (message, variant = 'info', durationMs = 4000, action) => {
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-        set((state) => ({ toasts: [...state.toasts, { id, message, variant }] }))
+        set((state) => ({ toasts: [...state.toasts, { id, message, variant, action }] }))
         if (durationMs > 0) {
           setTimeout(() => get().dismissToast(id), durationMs)
         }
@@ -105,7 +125,7 @@ export const useViewStore = create<ViewState>()(
     }),
     {
       name: 'vault-kanban-view',
-      version: 4,
+      version: 5,
       migrate: (persisted: unknown, version: number) => {
         const s = persisted as { filters?: Partial<ViewFilters>; grouping?: string }
         if (version < 1 && s?.filters && !s.filters.projects) {
@@ -125,6 +145,11 @@ export const useViewStore = create<ViewState>()(
           const s4 = s as Record<string, unknown>
           s4.swimlaneHeights = {}
         }
+        if (version < 5) {
+          const s5 = s as Record<string, unknown>
+          s5.todoSort = 'createdDesc'
+          s5.todoKeyword = ''
+        }
         return s as ViewState
       },
       partialize: (state) => ({
@@ -134,7 +159,9 @@ export const useViewStore = create<ViewState>()(
         swimlaneEnabled: state.swimlaneEnabled,
         swimlaneProjects: state.swimlaneProjects,
         showEtcLane: state.showEtcLane,
-        swimlaneHeights: state.swimlaneHeights
+        swimlaneHeights: state.swimlaneHeights,
+        todoSort: state.todoSort,
+        todoKeyword: state.todoKeyword
       })
     }
   )

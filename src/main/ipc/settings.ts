@@ -22,6 +22,8 @@ const DEFAULT_SETTINGS: Settings = {
   editorAutoSave: { enabled: true, idleSeconds: 2 },
   theme: 'system',
   columnPageSize: 5,
+  todoFolder: '06_To Do',
+  projectsFolder: '01_Projects',
   cardFields: ['priority', 'project', 'created']
 }
 
