@@ -23,3 +23,8 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+# releaseType 기본값이 draft 라, 넣지 않으면 태그 빌드마다 초안 릴리스가 생기고
+# gh release edit --draft=false 로 직접 게시해야 했다 (2026-09-01 v0.2.0).
+publish:
+  provider: github
+  releaseType: release
