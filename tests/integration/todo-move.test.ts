@@ -126,4 +126,58 @@ describe('moveNoteToProject / createNote', () => {
     expect(result).toMatchObject({ ok: false, code: 'exists' })
     expect(await fs.readFile(oldPath, 'utf-8')).toBe(TODO_RAW)
   })
+
+  it('pathExists 체크 후 실제 쓰기 전에 파일이 생기면 wx 플래그가 거부한다', async () => {
+    // Pre-create the destination file
+    await fs.mkdir(join(tmpDir, '01_Projects', '02_에너빌드', '03_에너지분석'), {
+      recursive: true
+    })
+    await fs.writeFile(newPath, '이미 있는 파일', 'utf-8')
+
+    // Mock pathExists to return false (simulate race condition)
+    const accessSpy = vi.spyOn(fs, 'access').mockRejectedValueOnce(new Error('ENOENT'))
+
+    const result = await moveNoteToProject(oldPath, newPath, {
+      project: '에너빌드',
+      subProject: null
+    })
+    expect(result).toMatchObject({ ok: false, code: 'exists' })
+    // Destination file should be untouched by the failed write
+    expect(await fs.readFile(newPath, 'utf-8')).toBe('이미 있는 파일')
+    expect(await fs.readFile(oldPath, 'utf-8')).toBe(TODO_RAW)
+
+    accessSpy.mockRestore()
+  })
+
+  it('원본 삭제와 롤백 둘 다 실패하면 두 에러를 모두 보고한다', async () => {
+    // Create destination folder but NOT the file itself
+    await fs.mkdir(join(tmpDir, '01_Projects', '02_에너빌드', '03_에너지분석'), {
+      recursive: true
+    })
+
+    // Mock unlink to fail
+    const unlinkSpy = vi.spyOn(fs, 'unlink').mockRejectedValueOnce(new Error('EBUSY: unlink'))
+
+    // Mock rm to fail - use mockRejectedValueOnce which returns a rejected promise
+    const rmSpy = vi.spyOn(fs, 'rm').mockRejectedValueOnce(new Error('EPERM: rm'))
+
+    const result = await moveNoteToProject(oldPath, newPath, {
+      project: '에너빌드',
+      subProject: null
+    })
+
+    // Should get both errors in the message
+    expect(result).toMatchObject({ ok: false, code: 'io' })
+    expect(result.error).toContain('EBUSY: unlink')
+    expect(result.error).toContain('EPERM: rm')
+
+    // Original should still exist
+    expect(await fs.readFile(oldPath, 'utf-8')).toBe(TODO_RAW)
+
+    // New file should have been created (before unlink failed)
+    expect(await fs.readFile(newPath, 'utf-8')).toContain('에너빌드')
+
+    unlinkSpy.mockRestore()
+    rmSpy.mockRestore()
+  })
 })

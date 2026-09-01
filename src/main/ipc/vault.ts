@@ -95,19 +95,29 @@ export async function moveNoteToProject(
     await fs.mkdir(dirname(newPath), { recursive: true })
     recentlyWrittenByApp.add(newPath)
     scheduleEviction(newPath)
-    await fs.writeFile(newPath, markdown, 'utf-8')
+    await fs.writeFile(newPath, markdown, { encoding: 'utf-8', flag: 'wx' })
 
     try {
       recentlyWrittenByApp.add(oldPath)
       scheduleEviction(oldPath)
       await fs.unlink(oldPath)
-    } catch (error: unknown) {
-      await fs.rm(newPath, { force: true })
-      return { ok: false, code: 'io', error: toMessage(error) }
+    } catch (unlinkError: unknown) {
+      try {
+        await fs.rm(newPath, { force: true })
+      } catch (rmError: unknown) {
+        const unlinkMsg = toMessage(unlinkError)
+        const rmMsg = toMessage(rmError)
+        return { ok: false, code: 'io', error: `Failed to unlink: ${unlinkMsg}; Failed to rollback: ${rmMsg}` }
+      }
+      return { ok: false, code: 'io', error: toMessage(unlinkError) }
     }
 
     return { ok: true }
   } catch (error: unknown) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'EEXIST') {
+      return { ok: false, code: 'exists', error: `이미 같은 이름의 파일이 있습니다: ${newPath}` }
+    }
     return { ok: false, code: 'io', error: toMessage(error) }
   }
 }
