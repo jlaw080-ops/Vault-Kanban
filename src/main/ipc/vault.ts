@@ -1,6 +1,6 @@
 import { dialog, ipcMain, BrowserWindow } from 'electron'
 import { promises as fs } from 'fs'
-import { join } from 'path'
+import { join, dirname } from 'path'
 import { parseNote, serializeNote, type Note } from '../utils/markdown'
 import { readPresetFields } from '../utils/metadataMenu'
 import { getSettingValue } from './settings'
@@ -45,6 +45,88 @@ export async function writeNoteToDisk(note: Note): Promise<void> {
   recentlyWrittenByApp.add(note.filePath)
   scheduleEviction(note.filePath)
   await fs.writeFile(note.filePath, markdown, 'utf-8')
+}
+
+export type FileOpResult =
+  | { ok: true }
+  | { ok: false; code: 'exists' | 'io'; error: string }
+
+export interface ProjectPatch {
+  project: string
+  /** null 이면 sub_project 를 건드리지 않는다 (기존 값 유지, 없으면 만들지 않음). */
+  subProject: string | null
+}
+
+async function pathExists(target: string): Promise<boolean> {
+  try {
+    await fs.access(target)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function toMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+/**
+ * 새 경로에 먼저 쓰고 원본을 지운다. 중간에 실패해도 원본이 남는다.
+ * 덮어쓰기는 하지 않는다.
+ */
+export async function moveNoteToProject(
+  oldPath: string,
+  newPath: string,
+  patch: ProjectPatch
+): Promise<FileOpResult> {
+  try {
+    if (await pathExists(newPath)) {
+      return { ok: false, code: 'exists', error: `이미 같은 이름의 파일이 있습니다: ${newPath}` }
+    }
+
+    const note = await readSingleNote(oldPath)
+    const extra = { ...(note.extraFrontmatter ?? {}) }
+    if (patch.subProject !== null) {
+      extra.sub_project = patch.subProject
+    }
+    const updated: Note = { ...note, project: patch.project, extraFrontmatter: extra }
+    const markdown = serializeNote(updated, getSettingValue('statusFieldName'))
+
+    await fs.mkdir(dirname(newPath), { recursive: true })
+    recentlyWrittenByApp.add(newPath)
+    scheduleEviction(newPath)
+    await fs.writeFile(newPath, markdown, 'utf-8')
+
+    try {
+      recentlyWrittenByApp.add(oldPath)
+      scheduleEviction(oldPath)
+      await fs.unlink(oldPath)
+    } catch (error: unknown) {
+      await fs.rm(newPath, { force: true })
+      return { ok: false, code: 'io', error: toMessage(error) }
+    }
+
+    return { ok: true }
+  } catch (error: unknown) {
+    return { ok: false, code: 'io', error: toMessage(error) }
+  }
+}
+
+/** 배타적 생성(wx). 이미 있으면 덮지 않고 exists 를 돌려준다. */
+export async function createNote(filePath: string, content: string): Promise<FileOpResult> {
+  try {
+    await fs.mkdir(dirname(filePath), { recursive: true })
+    recentlyWrittenByApp.add(filePath)
+    scheduleEviction(filePath)
+    await fs.writeFile(filePath, content, { encoding: 'utf-8', flag: 'wx' })
+    return { ok: true }
+  } catch (error: unknown) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'EEXIST') {
+      return { ok: false, code: 'exists', error: `이미 존재합니다: ${filePath}` }
+    }
+    return { ok: false, code: 'io', error: toMessage(error) }
+  }
 }
 
 async function selectVault(): Promise<string | null> {
@@ -180,6 +262,25 @@ export function registerVaultHandlers(): void {
         const message = error instanceof Error ? error.message : String(error)
         return { ok: false, error: message }
       }
+    }
+  )
+
+  ipcMain.handle(
+    'vault:moveNoteToProject',
+    async (
+      _event,
+      oldPath: string,
+      newPath: string,
+      patch: ProjectPatch
+    ): Promise<FileOpResult> => {
+      return moveNoteToProject(oldPath, newPath, patch)
+    }
+  )
+
+  ipcMain.handle(
+    'vault:createNote',
+    async (_event, filePath: string, content: string): Promise<FileOpResult> => {
+      return createNote(filePath, content)
     }
   )
 }

@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { Note, Settings } from '../main/utils/markdown'
 import type { AiNoteInput, AiGroupResult, RelatedResult } from '../main/ipc/ai'
-import type { FolderNode } from '../main/ipc/vault'
+import type { FolderNode, FileOpResult, ProjectPatch } from '../main/ipc/vault'
 import type { PresetFieldValues } from '../main/utils/metadataMenu'
 
 const vault = {
@@ -21,7 +21,15 @@ const vault = {
   listFolders: (vaultPath: string, excluded?: string[]): Promise<FolderNode[]> =>
     ipcRenderer.invoke('vault:listFolders', vaultPath, excluded),
   getPresetFields: (vaultPath: string): Promise<PresetFieldValues | null> =>
-    ipcRenderer.invoke('vault:getPresetFields', vaultPath)
+    ipcRenderer.invoke('vault:getPresetFields', vaultPath),
+  moveNoteToProject: (
+    oldPath: string,
+    newPath: string,
+    patch: ProjectPatch
+  ): Promise<FileOpResult> =>
+    ipcRenderer.invoke('vault:moveNoteToProject', oldPath, newPath, patch),
+  createNote: (filePath: string, content: string): Promise<FileOpResult> =>
+    ipcRenderer.invoke('vault:createNote', filePath, content)
 }
 
 const watcher = {

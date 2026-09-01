@@ -1,7 +1,7 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type { Note, Settings } from '../main/utils/markdown'
 import type { AiNoteInput, AiGroupResult, RelatedResult } from '../main/ipc/ai'
-import type { FolderNode } from '../main/ipc/vault'
+import type { FolderNode, FileOpResult, ProjectPatch } from '../main/ipc/vault'
 import type { PresetFieldValues } from '../main/utils/metadataMenu'
 
 export interface VaultApi {
@@ -16,6 +16,12 @@ export interface VaultApi {
   deleteNote: (filePath: string) => Promise<{ ok: boolean; error?: string }>
   listFolders: (vaultPath: string, excluded?: string[]) => Promise<FolderNode[]>
   getPresetFields: (vaultPath: string) => Promise<PresetFieldValues | null>
+  moveNoteToProject: (
+    oldPath: string,
+    newPath: string,
+    patch: ProjectPatch
+  ) => Promise<FileOpResult>
+  createNote: (filePath: string, content: string) => Promise<FileOpResult>
 }
 
 export interface WatcherApi {
