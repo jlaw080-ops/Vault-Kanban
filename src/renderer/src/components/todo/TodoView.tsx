@@ -97,7 +97,7 @@ export function TodoView({
       {rows.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
           <p className="text-sm text-muted-foreground dark:text-muted-foreground">
-            할일이 없습니다. `{todoFolder}` 폴더를 확인하세요.
+            할일이 없습니다. {todoFolder} 폴더를 확인하세요.
           </p>
         </div>
       ) : (

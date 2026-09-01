@@ -82,7 +82,7 @@ export function NewTodoDialog({
         <DialogHeader>
           <DialogTitle>새 할일</DialogTitle>
           <DialogDescription>
-            `{todoFolder}` 아래 이번 달 폴더에 노트를 만듭니다.
+            {todoFolder} 아래 이번 달 폴더에 노트를 만듭니다.
           </DialogDescription>
         </DialogHeader>
 
