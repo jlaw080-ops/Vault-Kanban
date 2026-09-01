@@ -51,26 +51,29 @@ export function NewTodoDialog({
       now
     })
 
-    setBusy(true)
-    const result = await window.api.vault.createNote(filePath, content)
-    setBusy(false)
-
-    if (!result.ok) {
-      pushToast(`할일 생성 실패: ${result.error}`, 'error', 6000)
-      return
-    }
-
     try {
-      const created = await window.api.vault.readNote(filePath)
-      onCreated(created)
-    } catch (error) {
-      pushToast(
-        `생성은 됐지만 읽지 못했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`,
-        'error',
-        6000
-      )
+      setBusy(true)
+      const result = await window.api.vault.createNote(filePath, content)
+
+      if (!result.ok) {
+        pushToast(`할일 생성 실패: ${result.error}`, 'error', 6000)
+        return
+      }
+
+      try {
+        const created = await window.api.vault.readNote(filePath)
+        onCreated(created)
+      } catch (error) {
+        pushToast(
+          `생성은 됐지만 읽지 못했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`,
+          'error',
+          6000
+        )
+      }
+      onOpenChange(false)
+    } finally {
+      setBusy(false)
     }
-    onOpenChange(false)
   }
 
   return (

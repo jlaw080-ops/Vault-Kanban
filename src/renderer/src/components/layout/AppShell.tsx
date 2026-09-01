@@ -357,7 +357,7 @@ export function AppShell(): JSX.Element {
           open
           onOpenChange={setShowNewTodo}
           onCreated={(created) => {
-            setNotes([...notes, created])
+            setNotes([...useVaultStore.getState().notes, created])
             openNote(created)
           }}
         />
