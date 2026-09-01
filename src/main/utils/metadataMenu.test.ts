@@ -35,9 +35,10 @@ describe('parseMetadataMenuPresets', () => {
   it('실측 구조에서 세 필드를 추출한다', () => {
     const result = parseMetadataMenuPresets(REAL_SHAPE)
     expect(result).toEqual({
+      projects: ['신재생에너지제안(EPC)', '에너빌드', 'Private'],
+      subProjects: [],
       statuses: ['backlog', 'planned', 'in-progress', 'review', 'done'],
-      priorities: ['low', 'mid', 'high'],
-      projects: ['신재생에너지제안(EPC)', '에너빌드', 'Private']
+      priorities: ['low', 'mid', 'high']
     })
   })
 
@@ -61,9 +62,10 @@ describe('parseMetadataMenuPresets', () => {
       ]
     })
     expect(parseMetadataMenuPresets(json)).toEqual({
+      projects: [],
+      subProjects: [],
       statuses: ['backlog'],
-      priorities: [],
-      projects: []
+      priorities: []
     })
   })
 
@@ -148,16 +150,49 @@ describe('parseMetadataMenuPresets', () => {
     expect(parseMetadataMenuPresets(json)?.projects).toEqual(['정상값'])
   })
 
-  it('앱이 안 쓰는 preset 필드(sub_project 등)는 결과에 없다', () => {
+  it('앱이 안 쓰는 preset 필드는 결과에 없다 (status·priority·project만 읽음)', () => {
     const json = JSON.stringify({
       presetFields: [
         {
-          name: 'sub_project',
+          name: 'tags',
           type: 'Select',
           options: { sourceType: 'ValuesList', valuesList: { '1': '값' } }
         }
       ]
     })
-    expect(parseMetadataMenuPresets(json)).toEqual({ statuses: [], priorities: [], projects: [] })
+    expect(parseMetadataMenuPresets(json)).toEqual({ statuses: [], priorities: [], projects: [], subProjects: [] })
+  })
+})
+
+describe('sub_project preset', () => {
+  it('sub_project Select 필드를 subProjects 로 읽는다', () => {
+    const json = JSON.stringify({
+      presetFields: [
+        {
+          name: 'sub_project',
+          type: 'Select',
+          options: {
+            sourceType: 'ValuesList',
+            valuesList: { '1': '디벨로퍼(에너빌드)', '2': ' 리포트(에너빌드)' }
+          }
+        }
+      ]
+    })
+    const result = parseMetadataMenuPresets(json)
+    expect(result?.subProjects).toEqual(['디벨로퍼(에너빌드)', '리포트(에너빌드)'])
+  })
+
+  it('sub_project 필드가 없으면 빈 배열이다', () => {
+    const json = JSON.stringify({
+      presetFields: [
+        {
+          name: 'project',
+          type: 'Select',
+          options: { sourceType: 'ValuesList', valuesList: { '1': '에너빌드' } }
+        }
+      ]
+    })
+    const result = parseMetadataMenuPresets(json)
+    expect(result?.subProjects).toEqual([])
   })
 })

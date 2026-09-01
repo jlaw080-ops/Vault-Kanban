@@ -3,12 +3,14 @@ import { join } from 'path'
 
 export interface PresetFieldValues {
   projects: string[]
+  subProjects: string[]
   statuses: string[]
   priorities: string[]
 }
 
 const FIELD_TO_KEY: Record<string, keyof PresetFieldValues> = {
   project: 'projects',
+  sub_project: 'subProjects',
   status: 'statuses',
   priority: 'priorities'
 }
@@ -45,7 +47,7 @@ export function parseMetadataMenuPresets(jsonText: string): PresetFieldValues | 
   const presetFields = (data as { presetFields?: unknown }).presetFields
   if (!Array.isArray(presetFields)) return null
 
-  const result: PresetFieldValues = { projects: [], statuses: [], priorities: [] }
+  const result: PresetFieldValues = { projects: [], subProjects: [], statuses: [], priorities: [] }
 
   for (const field of presetFields) {
     if (typeof field !== 'object' || field === null) continue
