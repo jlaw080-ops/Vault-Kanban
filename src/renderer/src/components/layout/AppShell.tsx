@@ -7,7 +7,8 @@ import {
   Link,
   ChevronLeft,
   ChevronRight,
-  CalendarDays
+  CalendarDays,
+  ListTodo
 } from 'lucide-react'
 import { KanbanBoard } from '../kanban/KanbanBoard'
 import { ControlBar } from './ControlBar'
@@ -17,6 +18,7 @@ import { SettingsPanel } from '../settings/SettingsPanel'
 import { AiGroupingDialog } from '../ai/AiGroupingDialog'
 import { RelatedNotesPanel } from '../ai/RelatedNotesPanel'
 import { DailyCalendar } from '../daily/DailyCalendar'
+import { TodoView } from '../todo/TodoView'
 import { useVaultStore } from '../../stores/vaultStore'
 import { useViewStore } from '../../stores/viewStore'
 import type { ColumnConfig, Status } from '@renderer/types'
@@ -50,9 +52,19 @@ export function AppShell(): JSX.Element {
   const [showRelated, setShowRelated] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [editorWidth, setEditorWidth] = useState(DEFAULT_EDITOR_WIDTH)
+  const [todoFolder, setTodoFolder] = useState('06_To Do')
   const isDragging = useRef(false)
   const dragStartX = useRef(0)
   const dragStartWidth = useRef(0)
+
+  useEffect(() => {
+    window.api.settings
+      .getAll()
+      .then((s) => {
+        setTodoFolder(s.todoFolder ?? '06_To Do')
+      })
+      .catch(() => {})
+  }, [route])
 
   useEffect(() => {
     const unsubscribe = window.api.watcher.onUnlink((filePath) => {
@@ -117,6 +129,7 @@ export function AppShell(): JSX.Element {
   const navItems = [
     { key: 'kanban', label: '칸반', icon: Kanban },
     { key: 'daily', label: '데일리', icon: CalendarDays },
+    { key: 'todo', label: 'To Do', icon: ListTodo },
     { key: 'dashboard', label: '대시보드', icon: BarChart3 },
     { key: 'settings', label: '설정', icon: Settings }
   ] as const
@@ -218,6 +231,15 @@ export function AppShell(): JSX.Element {
               )}
               {!loading && (notes.length > 0 || vaultPath) && route === 'kanban' && (
                 <KanbanBoard notes={notes} columns={DEFAULT_COLUMNS} onNoteUpdate={updateNote} />
+              )}
+              {!loading && route === 'todo' && (
+                <TodoView
+                  notes={notes}
+                  todoFolder={todoFolder}
+                  statusOrder={DEFAULT_COLUMNS.map((c) => String(c.name))}
+                  onNoteUpdate={updateNote}
+                  onOpenNote={openNote}
+                />
               )}
               {!loading && route === 'dashboard' && <Dashboard notes={notes} />}
               {route === 'daily' && <DailyCalendar />}
