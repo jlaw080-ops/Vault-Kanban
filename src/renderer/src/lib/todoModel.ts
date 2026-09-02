@@ -13,7 +13,7 @@ export interface ProjectMeta {
 const NUMERIC_PREFIX = /^\d+[_-]\s*/
 const FORBIDDEN_FILENAME_CHARS = /[\\/:*?"<>|]/g
 const MAX_TITLE_LENGTH = 120
-const MIN_SUGGEST_SEGMENT = 2
+const MIN_MATCH_LENGTH = 2
 
 const PRIORITY_RANK: Record<Priority, number> = { high: 0, mid: 1, low: 2 }
 const NO_PRIORITY_RANK = 99
@@ -97,19 +97,132 @@ export function deriveProjectMeta(
   }
 }
 
-export function suggestProjectFolders(
+export interface FolderTreeNode {
+  name: string
+  path: string
+  children: FolderTreeNode[]
+}
+
+/**
+ * 폴더 트리에서 걸러낼 이름. 점으로 시작하는 폴더는 이름과 무관하게 전부 걸러지므로
+ * 여기에는 점이 없는 것만 둔다.
+ */
+export const NOISE_FOLDER_NAMES: readonly string[] = ['__pycache__', 'node_modules']
+
+/** 매핑 키. sub_project 가 없으면 project 만 쓴다. project 가 없으면 빈 문자열(매핑 대상 아님). */
+export function projectFolderKey(project: string | undefined, subProject: string | null): string {
+  const p = (project ?? '').trim()
+  if (p.length === 0) return ''
+  const sub = (subProject ?? '').trim()
+  return sub.length > 0 ? `${p}|${sub}` : p
+}
+
+/** 숫자 접두를 뗀 폴더 이름과 값을 비교한다. 완전일치 또는 한쪽이 다른 쪽을 포함. */
+function matchesSegment(folderSegment: string, value: string): boolean {
+  const a = stripNumericPrefix(folderSegment)
+  const b = value.trim()
+  if (a.length === 0 || b.length === 0) return false
+  if (a === b) return true
+  if (a.length < MIN_MATCH_LENGTH || b.length < MIN_MATCH_LENGTH) return false
+  return a.includes(b) || b.includes(a)
+}
+
+/**
+ * 이동 대화상자를 열 때 보여줄 목적지 폴더를 정한다.
+ * ① 저장된 매핑(sub 포함 키 → project 키) ② 이름 매칭.
+ * 못 정하면 null — 호출부는 전체 트리를 보여준다.
+ */
+export function resolveProjectFolder(
   folderPaths: readonly string[],
-  currentProject: string | undefined
-): string[] {
-  const key = (currentProject ?? '').trim()
-  if (key.length === 0) return []
-  return folderPaths.filter((path) =>
-    normalizePath(path)
-      .split('/')
-      .filter((s) => s.length > 0)
-      .map(stripNumericPrefix)
-      .some((seg) => seg.length >= MIN_SUGGEST_SEGMENT && (seg.includes(key) || key.includes(seg)))
-  )
+  projectsFolder: string,
+  project: string | undefined,
+  subProject: string | null,
+  folderMap: Readonly<Record<string, string>>
+): string | null {
+  const known = new Set(folderPaths.map(normalizePath))
+
+  for (const key of [projectFolderKey(project, subProject), projectFolderKey(project, null)]) {
+    if (key.length === 0) continue
+    const mapped = folderMap[key]
+    if (mapped && known.has(normalizePath(mapped))) return normalizePath(mapped)
+  }
+
+  const projectName = (project ?? '').trim()
+  if (projectName.length === 0) return null
+
+  const root = trimSlashes(normalizePath(projectsFolder))
+  const segmentsUnderRoot = (p: string): string[] => {
+    const n = trimSlashes(normalizePath(p))
+    if (root.length > 0) {
+      if (n === root) return []
+      if (n.startsWith(`${root}/`)) return n.slice(root.length + 1).split('/')
+    }
+    return n.split('/')
+  }
+
+  // project 는 1단 폴더에서만 찾는다. 하위까지 열어두면 상위가 맞을 때 그 아래가 전부 걸려든다.
+  const projectMatches = folderPaths.filter((p) => {
+    const segs = segmentsUnderRoot(p)
+    return segs.length === 1 && matchesSegment(segs[0], projectName)
+  })
+  if (projectMatches.length !== 1) return null
+  const projectPath = normalizePath(projectMatches[0])
+
+  const subName = (subProject ?? '').trim()
+  if (subName.length === 0) return projectPath
+
+  const subMatches = folderPaths.filter((p) => {
+    const n = normalizePath(p)
+    if (!n.startsWith(`${projectPath}/`)) return false
+    const segs = segmentsUnderRoot(p)
+    return matchesSegment(segs[segs.length - 1], subName)
+  })
+  return subMatches.length === 1 ? normalizePath(subMatches[0]) : projectPath
+}
+
+/** 점으로 시작하는 폴더와 excluded 이름을 트리에서 제거한다(원본 불변). */
+export function pruneFolderTree(
+  nodes: readonly FolderTreeNode[],
+  excluded: readonly string[]
+): FolderTreeNode[] {
+  return nodes
+    .filter((n) => !n.name.startsWith('.') && !excluded.includes(n.name))
+    .map((n) => ({ ...n, children: pruneFolderTree(n.children, excluded) }))
+}
+
+/** 이름에 keyword 가 든 폴더와 그 조상만 남긴다. 맞은 폴더의 하위는 그대로 둔다. */
+export function filterFolderTree(
+  nodes: readonly FolderTreeNode[],
+  keyword: string
+): FolderTreeNode[] {
+  const k = keyword.trim().toLowerCase()
+  if (k.length === 0) return [...nodes]
+
+  const out: FolderTreeNode[] = []
+  for (const node of nodes) {
+    if (node.name.toLowerCase().includes(k)) {
+      out.push(node)
+      continue
+    }
+    const children = filterFolderTree(node.children, keyword)
+    if (children.length > 0) out.push({ ...node, children })
+  }
+  return out
+}
+
+/** 경로로 서브트리를 찾는다. 없으면 null. */
+export function findSubtree(
+  nodes: readonly FolderTreeNode[],
+  path: string
+): FolderTreeNode | null {
+  const target = normalizePath(path)
+  const stack: FolderTreeNode[] = [...nodes]
+  while (stack.length > 0) {
+    const node = stack.shift()!
+    if (normalizePath(node.path) === target) return node
+    stack.push(...node.children)
+  }
+  return null
 }
 
 function byTitle(a: Note, b: Note): number {

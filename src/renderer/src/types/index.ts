@@ -49,6 +49,8 @@ export interface Settings {
   todoFolder: string
   /** 볼트 루트 기준 상대 경로. 티켓을 옮길 프로젝트 루트 */
   projectsFolder: string
+  /** 'project|sub_project' → 폴더 상대경로. 이동 대화상자가 고른 폴더를 기억한다 */
+  projectFolderMap: Record<string, string>
   cardFields: CardField[]
 }
 

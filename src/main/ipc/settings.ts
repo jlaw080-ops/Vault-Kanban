@@ -24,6 +24,7 @@ const DEFAULT_SETTINGS: Settings = {
   columnPageSize: 5,
   todoFolder: '06_To Do',
   projectsFolder: '01_Projects',
+  projectFolderMap: {},
   cardFields: ['priority', 'project', 'created']
 }
 

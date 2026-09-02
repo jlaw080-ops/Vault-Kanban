@@ -28,8 +28,28 @@ const FOLDER_TREE = [
         name: '02_에너빌드',
         path: '01_Projects/02_에너빌드',
         children: [
-          { name: '03_에너지분석', path: '01_Projects/02_에너빌드/03_에너지분석', children: [] }
+          {
+            name: '03_에너지분석',
+            path: '01_Projects/02_에너빌드/03_에너지분석',
+            children: [
+              {
+                name: '__pycache__',
+                path: '01_Projects/02_에너빌드/03_에너지분석/__pycache__',
+                children: []
+              }
+            ]
+          },
+          {
+            name: '02_에너지절약계획서작성기능',
+            path: '01_Projects/02_에너빌드/02_에너지절약계획서작성기능',
+            children: []
+          }
         ]
+      },
+      {
+        name: '01_신재생에너지검토제안(EPC)',
+        path: '01_Projects/01_신재생에너지검토제안(EPC)',
+        children: []
       }
     ]
   }
@@ -52,16 +72,25 @@ function makeNote(overrides: Partial<Note> = {}): Note {
 }
 
 let moveNoteToProject: ReturnType<typeof vi.fn>
+let settingsGet: ReturnType<typeof vi.fn>
+let settingsSet: ReturnType<typeof vi.fn>
 
-beforeEach(() => {
+function installApi(folderMap: Record<string, string> = {}): void {
   moveNoteToProject = vi.fn().mockResolvedValue({ ok: true })
+  settingsGet = vi.fn().mockResolvedValue(folderMap)
+  settingsSet = vi.fn().mockResolvedValue(undefined)
   // @ts-expect-error 테스트용 부분 구현
   window.api = {
     vault: {
       listFolders: vi.fn().mockResolvedValue(FOLDER_TREE),
       moveNoteToProject
-    }
+    },
+    settings: { get: settingsGet, set: settingsSet }
   }
+}
+
+beforeEach(() => {
+  installApi()
 })
 
 afterEach(() => {
@@ -125,10 +154,10 @@ describe('MoveToProjectDialog', () => {
     )
   })
 
-  it('폴더를 고르기 전에는 이동 버튼이 비활성이다', async () => {
+  it('project 를 폴더로 못 찾으면 아무것도 선택되지 않아 이동 버튼이 비활성이다', async () => {
     render(
       <MoveToProjectDialog
-        note={makeNote()}
+        note={makeNote({ project: '이름이어긋난프로젝트' })}
         vaultPath="C:/v"
         projectsFolder="01_Projects"
         preset={PRESET}
@@ -137,6 +166,7 @@ describe('MoveToProjectDialog', () => {
         onMoved={() => {}}
       />
     )
+    await waitFor(() => expect(screen.getByText('02_에너빌드')).toBeInTheDocument())
     expect(screen.getByRole('button', { name: '이동' })).toBeDisabled()
   })
 
@@ -184,5 +214,96 @@ describe('MoveToProjectDialog', () => {
       'C:/v/06_To Do/2026-08/a.md',
       { project: '에너빌드', subProject: '이전세부' }
     )
+  })
+})
+
+// ── 폴더 선택 개선 (2026-09-02) ──────────────────────────────────────
+describe('MoveToProjectDialog — 범위·검색·매핑', () => {
+  function renderDialog(note = makeNote()): void {
+    render(
+      <MoveToProjectDialog
+        note={note}
+        vaultPath="C:/v"
+        projectsFolder="01_Projects"
+        preset={PRESET}
+        open
+        onOpenChange={() => {}}
+        onMoved={() => {}}
+      />
+    )
+  }
+
+  it('project·sub_project 로 찾은 폴더로 범위를 좁히고 미리 선택한다', async () => {
+    renderDialog(makeNote({ extraFrontmatter: { sub_project: '에너지분석(에너빌드)' } }))
+    await waitFor(() =>
+      expect(screen.getByText('01_Projects/02_에너빌드/03_에너지분석')).toBeInTheDocument()
+    )
+    // 범위 밖 형제는 트리에 없다
+    expect(screen.queryByText('01_신재생에너지검토제안(EPC)')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '이동' })).not.toBeDisabled()
+  })
+
+  it('저장된 매핑이 이름 매칭을 이긴다', async () => {
+    installApi({ '에너빌드|이전세부': '01_Projects/01_신재생에너지검토제안(EPC)' })
+    renderDialog()
+    await waitFor(() =>
+      expect(screen.getByText('01_Projects/01_신재생에너지검토제안(EPC)')).toBeInTheDocument()
+    )
+  })
+
+  it('전체 보기 토글로 범위를 넓힌다', async () => {
+    renderDialog()
+    await waitFor(() => expect(screen.getByText('02_에너빌드')).toBeInTheDocument())
+    expect(screen.queryByText('01_신재생에너지검토제안(EPC)')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '전체 보기' }))
+    await waitFor(() =>
+      expect(screen.getByText('01_신재생에너지검토제안(EPC)')).toBeInTheDocument()
+    )
+  })
+
+  it('캐시 폴더는 트리에 나오지 않는다', async () => {
+    renderDialog(makeNote({ extraFrontmatter: { sub_project: '에너지분석(에너빌드)' } }))
+    await waitFor(() => expect(screen.getByText('03_에너지분석')).toBeInTheDocument())
+    expect(screen.queryByText('__pycache__')).not.toBeInTheDocument()
+  })
+
+  it('검색으로 트리를 좁힌다', async () => {
+    renderDialog()
+    await waitFor(() => expect(screen.getByText('03_에너지분석')).toBeInTheDocument())
+
+    fireEvent.change(screen.getByLabelText('폴더 검색'), { target: { value: '절약' } })
+    await waitFor(() => expect(screen.queryByText('03_에너지분석')).not.toBeInTheDocument())
+    expect(screen.getByText('02_에너지절약계획서작성기능')).toBeInTheDocument()
+  })
+
+  it('맞는 폴더가 없으면 안내를 보여준다', async () => {
+    renderDialog()
+    await waitFor(() => expect(screen.getByText('03_에너지분석')).toBeInTheDocument())
+    fireEvent.change(screen.getByLabelText('폴더 검색'), { target: { value: '없는이름' } })
+    await waitFor(() => expect(screen.getByText('맞는 폴더가 없습니다.')).toBeInTheDocument())
+  })
+
+  it('이동에 성공하면 노트의 원래 project·sub_project 를 키로 매핑을 저장한다', async () => {
+    renderDialog()
+    await waitFor(() => expect(screen.getByText('03_에너지분석')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('03_에너지분석'))
+    fireEvent.click(screen.getByRole('button', { name: '이동' }))
+
+    await waitFor(() => expect(settingsSet).toHaveBeenCalledTimes(1))
+    expect(settingsSet).toHaveBeenCalledWith('projectFolderMap', {
+      '에너빌드|이전세부': '01_Projects/02_에너빌드/03_에너지분석'
+    })
+  })
+
+  it('이동에 실패하면 매핑을 저장하지 않는다', async () => {
+    renderDialog()
+    await waitFor(() => expect(screen.getByText('03_에너지분석')).toBeInTheDocument())
+    moveNoteToProject.mockResolvedValue({ ok: false, code: 'exists', error: '이미 있음' })
+    fireEvent.click(screen.getByText('03_에너지분석'))
+    fireEvent.click(screen.getByRole('button', { name: '이동' }))
+
+    await waitFor(() => expect(moveNoteToProject).toHaveBeenCalled())
+    expect(settingsSet).not.toHaveBeenCalled()
   })
 })

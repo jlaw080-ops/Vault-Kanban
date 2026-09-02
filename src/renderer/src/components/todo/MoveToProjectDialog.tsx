@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Folder } from 'lucide-react'
 import type { Note } from '@renderer/types'
-import type { FolderNode } from '../../../../main/ipc/vault'
 import {
   Dialog,
   DialogContent,
@@ -11,7 +10,17 @@ import {
   DialogTitle
 } from '../ui/dialog'
 import { useViewStore } from '../../stores/viewStore'
-import { deriveProjectMeta, getSubProject, suggestProjectFolders } from '../../lib/todoModel'
+import {
+  deriveProjectMeta,
+  filterFolderTree,
+  findSubtree,
+  getSubProject,
+  NOISE_FOLDER_NAMES,
+  projectFolderKey,
+  pruneFolderTree,
+  resolveProjectFolder,
+  type FolderTreeNode
+} from '../../lib/todoModel'
 
 interface Props {
   note: Note
@@ -27,7 +36,16 @@ interface Props {
 const inputCls =
   'w-full text-xs bg-background text-foreground border border-border rounded-md px-2 py-1.5 dark:bg-background dark:text-foreground'
 
-function flattenPaths(nodes: readonly FolderNode[], out: string[] = []): string[] {
+/** listFolders 에 넘길 제외 목록. 캐시 디렉터리까지 걸어 들어가지 않게 한다. */
+const LIST_EXCLUDED: readonly string[] = [
+  '.obsidian',
+  '.trash',
+  '.git',
+  '.DS_Store',
+  ...NOISE_FOLDER_NAMES
+]
+
+function flattenPaths(nodes: readonly FolderTreeNode[], out: string[] = []): string[] {
   for (const node of nodes) {
     out.push(node.path)
     flattenPaths(node.children, out)
@@ -36,30 +54,33 @@ function flattenPaths(nodes: readonly FolderNode[], out: string[] = []): string[
 }
 
 /** projectsFolder 하위 서브트리만 남긴다. 못 찾으면 원본을 그대로 쓴다. */
-function scopeToProjects(nodes: readonly FolderNode[], projectsFolder: string): FolderNode[] {
+function scopeToProjects(
+  nodes: readonly FolderTreeNode[],
+  projectsFolder: string
+): FolderTreeNode[] {
   const target = projectsFolder.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')
-  const stack: FolderNode[] = [...nodes]
-  while (stack.length > 0) {
-    const node = stack.shift()!
-    if (node.path === target) return node.children
-    stack.push(...node.children)
-  }
-  return [...nodes]
+  const found = findSubtree(nodes, target)
+  return found ? found.children : [...nodes]
 }
 
 function FolderRow({
   node,
   selected,
   onSelect,
-  depth
+  depth,
+  keyword
 }: {
-  node: FolderNode
+  node: FolderTreeNode
   selected: string
   onSelect: (path: string) => void
   depth: number
+  keyword: string
 }): JSX.Element {
   const [open, setOpen] = useState(depth === 0)
   const isSelected = selected === node.path
+  // 검색 중에는 조상만 펼친다. 일치한 폴더까지 펼치면 그 아래 전부가 쏟아진다.
+  const selfMatches = keyword.length > 0 && node.name.toLowerCase().includes(keyword)
+  const expanded = keyword.length > 0 ? !selfMatches : open
 
   return (
     <div>
@@ -73,11 +94,11 @@ function FolderRow({
       >
         {node.children.length > 0 ? (
           <button
-            onClick={() => setOpen((o) => !o)}
-            aria-label={open ? '접기' : '펼치기'}
+            onClick={() => setOpen(!expanded)}
+            aria-label={expanded ? '접기' : '펼치기'}
             className="text-muted-foreground w-5 h-5 flex items-center justify-center shrink-0"
           >
-            {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           </button>
         ) : (
           <span className="w-5 h-5 shrink-0" />
@@ -90,7 +111,7 @@ function FolderRow({
           {node.name}
         </button>
       </div>
-      {open &&
+      {expanded &&
         node.children.map((child) => (
           <FolderRow
             key={child.path}
@@ -98,6 +119,7 @@ function FolderRow({
             selected={selected}
             onSelect={onSelect}
             depth={depth + 1}
+            keyword={keyword}
           />
         ))}
     </div>
@@ -114,33 +136,68 @@ export function MoveToProjectDialog({
   onMoved
 }: Props): JSX.Element {
   const pushToast = useViewStore((s) => s.pushToast)
-  const [tree, setTree] = useState<FolderNode[]>([])
+  const [tree, setTree] = useState<FolderTreeNode[]>([])
+  const [folderMap, setFolderMap] = useState<Record<string, string>>({})
+  const [scope, setScope] = useState<string | null>(null)
+  const [showAll, setShowAll] = useState(false)
+  const [filter, setFilter] = useState('')
   const [selected, setSelected] = useState('')
   const [project, setProject] = useState('')
   const [subProject, setSubProject] = useState('')
   const [offPreset, setOffPreset] = useState({ project: false, subProject: false })
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => {
-    if (!open || !vaultPath) return
-    window.api.vault
-      .listFolders(vaultPath)
-      .then((nodes) => setTree(scopeToProjects(nodes, projectsFolder)))
-      .catch(() => setTree([]))
-  }, [open, vaultPath, projectsFolder])
-
-  const suggestions = useMemo(
-    () => suggestProjectFolders(flattenPaths(tree), note.project),
-    [tree, note.project]
-  )
-
-  function handleSelect(path: string): void {
+  function applySelection(path: string): void {
     setSelected(path)
     const meta = deriveProjectMeta(path, projectsFolder, preset)
     setProject(meta.project)
     setSubProject(meta.subProject ?? getSubProject(note) ?? '')
     setOffPreset(meta.offPreset)
   }
+
+  useEffect(() => {
+    if (!open || !vaultPath) return
+    let cancelled = false
+
+    Promise.all([
+      window.api.vault.listFolders(vaultPath, [...LIST_EXCLUDED]),
+      window.api.settings.get('projectFolderMap').catch(() => ({}))
+    ])
+      .then(([nodes, savedMap]) => {
+        if (cancelled) return
+        const map = savedMap ?? {}
+        const scoped = scopeToProjects(pruneFolderTree(nodes, NOISE_FOLDER_NAMES), projectsFolder)
+        setTree(scoped)
+        setFolderMap(map)
+
+        const resolved = resolveProjectFolder(
+          flattenPaths(scoped),
+          projectsFolder,
+          note.project,
+          getSubProject(note),
+          map
+        )
+        setScope(resolved)
+        if (resolved) applySelection(resolved)
+      })
+      .catch(() => {
+        if (!cancelled) setTree([])
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // applySelection 은 preset·note 에만 의존하고, 이 효과는 대화상자를 열 때 한 번만 돈다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, vaultPath, projectsFolder, note.filePath])
+
+  const scopedTree = useMemo(() => {
+    if (showAll || !scope) return tree
+    const sub = findSubtree(tree, scope)
+    return sub ? [sub] : tree
+  }, [tree, scope, showAll])
+
+  const displayTree = useMemo(() => filterFolderTree(scopedTree, filter), [scopedTree, filter])
 
   async function handleMove(): Promise<void> {
     const fileName = note.filePath.replace(/\\/g, '/').split('/').pop()!
@@ -161,18 +218,23 @@ export function MoveToProjectDialog({
       return
     }
 
+    // 다음에 같은 project·sub_project 할일을 옮길 때 이 폴더로 바로 연다.
+    // 키는 노트의 원래 값이다 — 앞으로 들어올 노트도 그 값을 갖고 오기 때문이다.
+    const key = projectFolderKey(note.project, getSubProject(note))
+    if (key.length > 0) {
+      void window.api.settings.set('projectFolderMap', { ...folderMap, [key]: selected })
+    }
+
     onMoved(oldPath)
     onOpenChange(false)
     pushToast(`"${note.title}"을(를) ${selected}(으)로 옮겼습니다.`, 'success', 10000, {
       label: '되돌리기',
       onClick: () => {
-        void window.api.vault
-          .moveNoteToProject(newPath, oldPath, before)
-          .then((undone) => {
-            if (!undone.ok) {
-              pushToast(`되돌리기 실패: ${undone.error}`, 'error', 6000)
-            }
-          })
+        void window.api.vault.moveNoteToProject(newPath, oldPath, before).then((undone) => {
+          if (!undone.ok) {
+            pushToast(`되돌리기 실패: ${undone.error}`, 'error', 6000)
+          }
+        })
       }
     })
   }
@@ -187,36 +249,49 @@ export function MoveToProjectDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {suggestions.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            <span className="text-xs text-muted-foreground dark:text-muted-foreground self-center">
-              추천
-            </span>
-            {suggestions.map((path) => (
-              <button
-                key={path}
-                onClick={() => handleSelect(path)}
-                className="text-xs px-2 py-0.5 rounded-full border border-border text-foreground hover:bg-muted dark:text-foreground dark:hover:bg-muted"
-              >
-                {path}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground dark:text-muted-foreground shrink-0">
+            범위
+          </span>
+          <span className="text-xs text-foreground dark:text-foreground truncate flex-1">
+            {showAll || !scope ? projectsFolder : scope}
+          </span>
+          {scope && (
+            <button
+              onClick={() => setShowAll(!showAll)}
+              className="text-xs px-2 py-1 rounded-md border border-border text-muted-foreground hover:bg-muted dark:hover:bg-muted shrink-0"
+            >
+              {showAll ? '범위 좁히기' : '전체 보기'}
+            </button>
+          )}
+        </div>
+
+        <input
+          aria-label="폴더 검색"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="폴더 이름으로 찾기"
+          className={inputCls}
+        />
 
         <div className="border border-border rounded-md max-h-52 overflow-y-auto bg-muted/20 dark:bg-muted/20 py-1">
           {tree.length === 0 ? (
             <p className="text-xs text-muted-foreground dark:text-muted-foreground px-2 py-1">
               폴더를 불러오는 중입니다.
             </p>
+          ) : displayTree.length === 0 ? (
+            <p className="text-xs text-muted-foreground dark:text-muted-foreground px-2 py-1">
+              맞는 폴더가 없습니다.
+            </p>
           ) : (
-            tree.map((node) => (
+            displayTree.map((node) => (
               <FolderRow
                 key={node.path}
                 node={node}
                 selected={selected}
-                onSelect={handleSelect}
+                onSelect={applySelection}
                 depth={0}
+                keyword={filter.trim().toLowerCase()}
               />
             ))
           )}
