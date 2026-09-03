@@ -102,7 +102,9 @@ export function TodoView({
         </div>
       ) : (
         <div className="flex-1 overflow-auto border border-border rounded-md">
-          <table className="w-full border-collapse">
+          {/* 창이 좁아지면 열이 계속 줄어들어 select 안 글자가 잘린다 — 표 자체에
+              최소 폭을 줘서 그 아래로는 줄지 않고 가로 스크롤이 뜨게 한다. */}
+          <table className="w-full min-w-[860px] border-collapse">
             <thead className="sticky top-0 bg-card dark:bg-card">
               <tr className="border-b border-border">
                 <th className={`${headCls} w-[34%]`}>제목</th>
