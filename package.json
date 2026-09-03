@@ -1,6 +1,6 @@
 {
   "name": "vault-kanban",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Local Obsidian vault Kanban viewer/editor with AI insights",
   "main": "./out/main/index.js",
   "author": "jlaw080",
